@@ -95,6 +95,7 @@ export class RelayClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private closedByCaller = false;
   private nextSubscriptionId = 0;
+  private pendingAuthEventId: string | null = null;
 
   constructor(
     readonly url: string,
@@ -132,6 +133,7 @@ export class RelayClient {
     this.closedByCaller = true;
     this.clearReconnectTimer();
     this.subscriptions.clear();
+    this.pendingAuthEventId = null;
     this.failPending(new RelayClientError("relay client closed"));
     this.socket?.close();
     this.socket = null;
@@ -209,7 +211,7 @@ export class RelayClient {
         this.subscriptions.delete(message.subscriptionId);
         return;
       case "OK":
-        this.settlePublish(message.eventId, message.accepted, message.message);
+        this.settleAuthOrPublish(message.eventId, message.accepted, message.message);
         return;
       case "NOTICE":
         this.options.onNotice?.(message.message);
@@ -229,6 +231,23 @@ export class RelayClient {
   }
 
   /**
+   * NIP-42: sending an AUTH frame is not the same as being authenticated —
+   * the relay confirms (or refuses) it with an OK tied to the AUTH event's
+   * id, exactly like any other event. Flipping to "authenticated" the
+   * moment we send it would tell the rest of the app something the relay
+   * never actually agreed to.
+   */
+  private settleAuthOrPublish(eventId: string, accepted: boolean, message: string): void {
+    if (eventId !== this.pendingAuthEventId) {
+      this.settlePublish(eventId, accepted, message);
+      return;
+    }
+    this.pendingAuthEventId = null;
+    if (accepted) this.setStatus("authenticated");
+    else this.options.onNotice?.(`AUTH rejected: ${message}`);
+  }
+
+  /**
    * NIP-42: the relay may challenge at any time, including again after a
    * reconnect. Without a signer we stay unauthenticated rather than failing
    * — read-only access to an open community is a legitimate mode.
@@ -241,8 +260,9 @@ export class RelayClient {
     }
     try {
       const template = buildAuthEvent(this.url, challenge, this.options.authTag);
-      this.trySend(encodeAuth(await sign(template)));
-      this.setStatus("authenticated");
+      const signed = await sign(template);
+      this.pendingAuthEventId = signed.id;
+      this.trySend(encodeAuth(signed));
     } catch (error) {
       this.options.onNotice?.(`AUTH failed: ${(error as Error).message}`);
     }
@@ -256,6 +276,7 @@ export class RelayClient {
 
   private handleClose(): void {
     this.socket = null;
+    this.pendingAuthEventId = null;
     this.failPending(new RelayClientError("connection closed before the relay replied"));
     this.setStatus("closed");
     if (!this.closedByCaller) this.scheduleReconnect();

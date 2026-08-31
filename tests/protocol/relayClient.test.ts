@@ -201,7 +201,29 @@ describe("NIP-42 authentication", () => {
       ["relay", URL],
       ["challenge", "challenge-123"],
     ]);
+
+    // Sending the AUTH frame is not the same as being authenticated — the
+    // relay still has to confirm it, tied to the AUTH event's own id.
+    expect(client.status()).toBe("open");
+    sockets[0].emit(["OK", "auth-id", true, "authenticated"]);
     await vi.waitFor(() => expect(client.status()).toBe("authenticated"));
+  });
+
+  it("stays open and reports why when the relay rejects the AUTH event", async () => {
+    const signAuthEvent = vi.fn(async (template) => ({ ...EVENT, ...template, id: "auth-id" }));
+    const notices: string[] = [];
+    const { client, sockets, connected } = connectedClient({
+      signAuthEvent,
+      onNotice: (message: string) => notices.push(message),
+    });
+    await connected;
+
+    sockets[0].emit(["AUTH", "challenge-123"]);
+    await vi.waitFor(() => expect(signAuthEvent).toHaveBeenCalled());
+    sockets[0].emit(["OK", "auth-id", false, "blocked: unknown pubkey"]);
+
+    await vi.waitFor(() => expect(notices).toContainEqual(expect.stringMatching(/blocked: unknown pubkey/)));
+    expect(client.status()).toBe("open");
   });
 
   it("carries a NIP-OA auth tag on the AUTH event when configured", async () => {
