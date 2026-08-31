@@ -1,0 +1,17 @@
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import path from "node:path";
+
+// Pure static SPA: no backend, no SSR. `vite build` output is deployable
+// to any static host, or dropped into a relay's own static-file serving
+// (mirroring how buzz-relay serves admin-web/web) if that's ever wanted.
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: { "@": path.resolve(import.meta.dirname, "src") },
+  },
+  test: {
+    environment: "node",
+    include: ["tests/**/*.test.ts", "tests/**/*.test.tsx"],
+  },
+});
