@@ -7,14 +7,16 @@
  * docs/ARCHITECTURE.md showing up in the component tree.
  */
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { createIndexedDbStorage } from "../signer/indexedDbStorage";
 import { OwnerKeystore } from "../signer/ownerKeystore";
 import { AgentsPanel } from "../features/agents/AgentsPanel";
 import { OwnerKeyPanel } from "../features/agents/OwnerKeyPanel";
 import { RegisterAgentPanel } from "../features/agents/RegisterAgentPanel";
 import { CommunityPanel } from "../features/communities/CommunityPanel";
+import { CreateChannelPanel } from "../features/membership/CreateChannelPanel";
 import { MembershipPanel } from "../features/membership/MembershipPanel";
+import type { VouchdSession } from "./session";
 import { useAgentRows } from "./useAgentRows";
 import { useChannels } from "./useChannels";
 import { useCommunityConnection } from "./useCommunityConnection";
@@ -34,6 +36,14 @@ export function App() {
   const rows = useAgentRows(db, connection.session);
   const channels = useChannels(db, connection.session);
   const nip07 = useNip07();
+  const [reauthorizing, setReauthorizing] = useState<string | undefined>(undefined);
+  const canPublish = Boolean(connection.session && nip07.available);
+
+  /** Publishing needs both a live session and an extension to sign as you. */
+  const publish = (template: Parameters<VouchdSession["publish"]>[0]) =>
+    connection.session
+      ? connection.session.publish(template)
+      : Promise.reject(new Error("not connected to a community"));
 
   return (
     <div className="shell">
@@ -49,17 +59,14 @@ export function App() {
         status={connection.status}
       />
       <OwnerKeyPanel keystore={keystore} />
-      <RegisterAgentPanel keystore={keystore} />
+      <RegisterAgentPanel keystore={keystore} prefillPubkey={reauthorizing} />
+      <CreateChannelPanel canPublish={canPublish} onCreate={publish} />
       <MembershipPanel
-        canPublish={Boolean(connection.session && nip07.available)}
+        canPublish={canPublish}
         channels={channels}
-        onAddMember={(template) =>
-          connection.session
-            ? connection.session.publish(template)
-            : Promise.reject(new Error("not connected to a community"))
-        }
+        onAddMember={publish}
       />
-      <AgentsPanel rows={rows} />
+      <AgentsPanel onReauthorize={setReauthorizing} rows={rows} />
     </div>
   );
 }

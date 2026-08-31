@@ -8,7 +8,7 @@
  * carries it on the events it signs itself, wherever it happens to run.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { EXPIRY_CAVEAT, describeConditions } from "./conditionsBuilder";
 import { registerAgent, type RegisterAgentResult } from "./registerAgent";
 import type { OwnerKeystore } from "../../signer/ownerKeystore";
@@ -86,8 +86,24 @@ interface MintDraft {
 
 const EMPTY_DRAFT: MintDraft = { agentPubkey: "", expiresInDays: "90", passphrase: "" };
 
-export function RegisterAgentPanel({ keystore }: { keystore: OwnerKeystore }) {
+export function RegisterAgentPanel({
+  keystore,
+  prefillPubkey,
+}: {
+  keystore: OwnerKeystore;
+  /**
+   * Set when the operator clicks "re-authorize" on an agent. Renewal is the
+   * only way to narrow trust over time — NIP-OA has no revocation — so the
+   * flow that the copy recommends has to be one click, not a re-paste.
+   */
+  prefillPubkey?: string;
+}) {
   const [draft, setDraft] = useState<MintDraft>(EMPTY_DRAFT);
+
+  useEffect(() => {
+    if (prefillPubkey) setDraft({ ...EMPTY_DRAFT, agentPubkey: prefillPubkey });
+  }, [prefillPubkey]);
+
   const [result, setResult] = useState<RegisterAgentResult | null>(null);
   const [error, setError] = useState<unknown>(null);
 

@@ -1,4 +1,7 @@
 node_modules/
 dist/
+dist-smoke/
+*.tsbuildinfo
 .DS_Store
 *.local
+_to_delete/

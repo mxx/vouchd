@@ -43,7 +43,7 @@ CI job, anywhere. The relay is the only thing in the middle.
 
 ```bash
 npm install
-npm run check   # typecheck + the 40-line rule + 80 tests
+npm run check   # typecheck + the 40-line rule + 85 tests
 npm run dev
 ```
 

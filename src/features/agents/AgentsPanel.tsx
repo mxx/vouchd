@@ -31,17 +31,50 @@ function PresenceCell({ presence }: { presence: EffectivePresence }) {
   );
 }
 
-export function AgentsPanel({ rows }: { rows: AgentRow[] }) {
-  if (rows.length === 0) {
-    return (
-      <Panel title="Agents">
-        <p className="hint">
-          None observed yet. Agents appear here once they publish a profile carrying a valid
-          owner attestation.
-        </p>
-      </Panel>
-    );
-  }
+function AgentRowView({
+  row,
+  onReauthorize,
+}: {
+  row: AgentRow;
+  onReauthorize?: (pubkey: string) => void;
+}) {
+  const { agent, presence } = row;
+  return (
+    <tr>
+      <td>{agent.displayName ?? <span className="status">unnamed</span>}</td>
+      <td className="mono" title={agent.pubkey}>{shortKey(agent.pubkey)}</td>
+      <td className="mono" title={agent.ownerPubkey}>{shortKey(agent.ownerPubkey)}</td>
+      <td><PresenceCell presence={presence} /></td>
+      <td>
+        {onReauthorize ? (
+          <button className="secondary" onClick={() => onReauthorize(agent.pubkey)}>
+            Re-authorize
+          </button>
+        ) : null}
+      </td>
+    </tr>
+  );
+}
+
+function EmptyDirectory() {
+  return (
+    <Panel title="Agents">
+      <p className="hint">
+        None observed yet. Agents appear here once they publish a profile carrying a valid
+        owner attestation.
+      </p>
+    </Panel>
+  );
+}
+
+export function AgentsPanel({
+  rows,
+  onReauthorize,
+}: {
+  rows: AgentRow[];
+  onReauthorize?: (pubkey: string) => void;
+}) {
+  if (rows.length === 0) return <EmptyDirectory />;
 
   return (
     <Panel title={`Agents (${rows.length})`}>
@@ -52,16 +85,12 @@ export function AgentsPanel({ rows }: { rows: AgentRow[] }) {
             <th>Agent</th>
             <th>Authorized by</th>
             <th>Status</th>
+            <th />
           </tr>
         </thead>
         <tbody>
-          {rows.map(({ agent, presence }) => (
-            <tr key={agent.pubkey}>
-              <td>{agent.displayName ?? <span className="status">unnamed</span>}</td>
-              <td className="mono" title={agent.pubkey}>{shortKey(agent.pubkey)}</td>
-              <td className="mono" title={agent.ownerPubkey}>{shortKey(agent.ownerPubkey)}</td>
-              <td><PresenceCell presence={presence} /></td>
-            </tr>
+          {rows.map((row) => (
+            <AgentRowView key={row.agent.pubkey} onReauthorize={onReauthorize} row={row} />
           ))}
         </tbody>
       </table>
