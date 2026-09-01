@@ -21,6 +21,23 @@ bullet list in `README.md` and that list only ever grew stale.
 
 ### Fixed
 
+- A subscription sent the instant a socket opens, on a relay that requires
+  AUTH for every REQ, used to be dropped for good: the relay closes it with
+  `auth-required` before this client's own AUTH exchange finishes, and
+  nothing ever resent it once AUTH succeeded -- the connection would settle
+  into `status: authenticated` with an empty read-model and no visible
+  error, because the rejection notice arrives and gets superseded by later,
+  unrelated NOTICEs. `RelayClient` now retries exactly the subscriptions the
+  relay bounced for lacking AUTH once AUTH actually succeeds, without
+  resending subscriptions that were never rejected. Found via a real
+  connection to a relay requiring auth for every REQ, not a hypothetical.
+- `RelayClient` also stops auto-reconnecting when the *local* signer
+  declines to sign the AUTH event -- a NIP-07 extension's prompt dismissed,
+  or the extension self-locked after a prior dismissal -- not just when the
+  relay's `OK` confirms a rejection. The signer throwing was previously
+  indistinguishable from a plain network drop, so it kept retrying (and
+  re-triggering the extension's own popup) on every backoff tick: the other
+  half of the status flickering between `open` and `closed`.
 - `RelayClient` no longer retries forever after the relay has *confirmed* an
   AUTH rejection (`OK ... false`) -- that identity was refused, not dropped,
   and retrying with the same credentials was never going to succeed. It

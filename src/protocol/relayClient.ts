@@ -8,9 +8,10 @@
  * about keeping sharp.
  *
  * Signing is injected, never imported. `protocol/` must stay ignorant of
- * where keys live — see AGENTS.md and docs/ARCHITECTURE.md's two-signing-path
- * rule. A relay client that could reach into the keystore would be one
- * refactor away from signing something the user never approved.
+ * where keys live — see AGENTS.md and docs/ARCHITECTURE.md's "Two signing
+ * operations, one chosen identity". A relay client that could reach into
+ * the keystore would be one refactor away from signing something the user
+ * never approved, or never chose this connection to sign with.
  *
  * Two deliberate non-behaviors, both of which look like missing features
  * until you need the guarantee:
@@ -23,7 +24,14 @@
  *   freshly signed event.
  * - **Subscriptions ARE re-established across reconnects**, because a
  *   subscription is a standing question, not a one-time act, and silently
- *   losing one produces a UI that looks live and is actually frozen.
+ *   losing one produces a UI that looks live and is actually frozen. The
+ *   same guarantee covers a subscription the relay bounced only for lacking
+ *   AUTH (`CLOSED ... "auth-required: ..."`) -- a real, observed race, not
+ *   a hypothetical one: a caller can send REQ the instant the socket opens,
+ *   before this client's own AUTH exchange (kicked off by the relay's own
+ *   AUTH challenge) has finished, on a relay that requires it for every
+ *   REQ. That subscription is retried once AUTH succeeds, not abandoned --
+ *   see `resendAuthRequiredSubscriptions()`.
  */
 
 import { buildAuthEvent } from "./events/auth";
@@ -90,19 +98,33 @@ export class RelayClient {
   private socket: WebSocketLike | null = null;
   private currentStatus: ConnectionStatus = "closed";
   private readonly subscriptions = new Map<string, ActiveSubscription>();
+  /**
+   * Subscription ids the relay closed for lacking AUTH, kept separately
+   * from `subscriptions` (which they remain *in*) so `resubscribeAll()` --
+   * used on a full reconnect, when everything needs resending regardless of
+   * why the last socket died -- doesn't have to special-case them, while
+   * `resendAuthRequiredSubscriptions()` can retry exactly this set instead
+   * of resending every live subscription (most of which were never
+   * rejected) on every AUTH success.
+   */
+  private readonly authRequiredRetries = new Set<string>();
   private readonly pendingPublishes = new Map<string, PendingPublish>();
   private reconnectAttempt = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private closedByCaller = false;
   /**
-   * Set when the relay's OK confirms an AUTH rejection, cleared by the next
-   * explicit connect(). A close that follows a confirmed rejection is not
-   * something retrying will fix -- the identity was refused, not dropped --
-   * so it stops the auto-reconnect loop rather than retrying forever with
-   * the same doomed credentials. (If a socket stays open after a rejection
-   * -- reading is often still allowed -- and only closes much later for an
-   * unrelated reason, this flag can still be stale true; accepted as a rare
-   * corner case rather than tracked precisely.)
+   * Set whenever an AUTH attempt is confirmed not to be going anywhere --
+   * either the relay's OK rejects it, or producing/sending it fails locally
+   * (the signer throws, e.g. the user dismissed the extension's prompt, or
+   * the extension has locked itself out after a prior dismissal). Cleared
+   * by the next explicit connect(). Either way, retrying immediately can't
+   * produce a different outcome -- the same doomed credentials, or the same
+   * declined prompt -- so it stops the auto-reconnect loop instead of
+   * hammering the relay (and re-triggering the extension's own popup) on
+   * every backoff tick. (If a socket stays open after this -- reading is
+   * often still allowed unauthenticated -- and only closes much later for
+   * an unrelated reason, this flag can still be stale true; accepted as a
+   * rare corner case rather than tracked precisely.)
    */
   private authRejected = false;
   private nextSubscriptionId = 0;
@@ -145,6 +167,7 @@ export class RelayClient {
     this.closedByCaller = true;
     this.clearReconnectTimer();
     this.subscriptions.clear();
+    this.authRequiredRetries.clear();
     this.pendingAuthEventId = null;
     this.failPending(new RelayClientError("relay client closed"));
     this.socket?.close();
@@ -159,6 +182,7 @@ export class RelayClient {
     return {
       close: () => {
         this.subscriptions.delete(id);
+        this.authRequiredRetries.delete(id);
         this.trySend(encodeClose(id));
       },
     };
@@ -219,8 +243,7 @@ export class RelayClient {
         this.subscriptions.get(message.subscriptionId)?.handlers.onEose?.();
         return;
       case "CLOSED":
-        this.subscriptions.get(message.subscriptionId)?.handlers.onClosed?.(message.message);
-        this.subscriptions.delete(message.subscriptionId);
+        this.handleSubscriptionClosed(message.subscriptionId, message.message);
         return;
       case "OK":
         this.settleAuthOrPublish(message.eventId, message.accepted, message.message);
@@ -258,10 +281,36 @@ export class RelayClient {
     if (accepted) {
       this.authRejected = false;
       this.setStatus("authenticated");
+      this.resendAuthRequiredSubscriptions();
     } else {
       this.authRejected = true;
       this.options.onNotice?.(`AUTH rejected: ${message}`);
     }
+  }
+
+  /**
+   * A CLOSED for lacking AUTH is kept, not abandoned -- see this class's
+   * own header comment and `authRequiredRetries`'s. Any other reason
+   * (`restricted: ...`, an explicit server-side unsubscribe, ...) means
+   * resending the identical REQ would not produce a different outcome, so
+   * that case is dropped exactly as before.
+   */
+  private handleSubscriptionClosed(subscriptionId: string, reason: string): void {
+    this.subscriptions.get(subscriptionId)?.handlers.onClosed?.(reason);
+    if (reason.split(":")[0].trim() === "auth-required") {
+      this.authRequiredRetries.add(subscriptionId);
+    } else {
+      this.subscriptions.delete(subscriptionId);
+    }
+  }
+
+  /** Retries exactly the subscriptions AUTH unblocks, not every live one. */
+  private resendAuthRequiredSubscriptions(): void {
+    for (const id of this.authRequiredRetries) {
+      const subscription = this.subscriptions.get(id);
+      if (subscription) this.trySend(encodeReq(id, subscription.filters));
+    }
+    this.authRequiredRetries.clear();
   }
 
   /**
@@ -281,6 +330,7 @@ export class RelayClient {
       this.pendingAuthEventId = signed.id;
       this.trySend(encodeAuth(signed));
     } catch (error) {
+      this.authRejected = true;
       this.options.onNotice?.(`AUTH failed: ${(error as Error).message}`);
     }
   }
@@ -294,8 +344,9 @@ export class RelayClient {
   /**
    * `closedByCaller` distinguishes "we hung up" from "the relay did" (only
    * the latter reconnects); `authRejected` distinguishes "network hiccup"
-   * from "the relay just told us who we are isn't welcome here" (only the
-   * former retries -- see the field's own comment for why).
+   * from "AUTH is confirmed not to be working right now, whether the relay
+   * said so or our own signer did" (only the former retries -- see the
+   * field's own comment for why).
    */
   private handleClose(): void {
     this.socket = null;

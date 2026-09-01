@@ -156,6 +156,64 @@ describe("subscription routing", () => {
   });
 });
 
+describe("retrying a subscription the relay closed for lacking AUTH", () => {
+  /** A caller can legitimately subscribe before this client's own AUTH
+   * exchange finishes -- see relayClient.ts's header comment on why that
+   * is a real race, not a hypothetical one. */
+  function authenticate(sockets: FakeSocket[], signAuthEvent: ReturnType<typeof vi.fn>) {
+    sockets[0].emit(["AUTH", "challenge-123"]);
+    return vi
+      .waitFor(() => expect(signAuthEvent).toHaveBeenCalled())
+      .then(() => sockets[0].emit(["OK", "auth-id", true, "authenticated"]));
+  }
+
+  it("resends it once AUTH succeeds, instead of leaving it dropped", async () => {
+    const signAuthEvent = vi.fn(async (template) => ({ ...EVENT, ...template, id: "auth-id" }));
+    const { client, sockets, connected } = connectedClient({ signAuthEvent });
+    await connected;
+
+    client.subscribe([{ kinds: [1] }], { onEvent: () => undefined });
+    sockets[0].emit(["CLOSED", "sub0", "auth-required: authenticate before subscribing"]);
+
+    await authenticate(sockets, signAuthEvent);
+    await vi.waitFor(() => expect(client.status()).toBe("authenticated"));
+
+    expect(sockets[0].frames().filter((frame) => frame[0] === "REQ")).toEqual([
+      ["REQ", "sub0", { kinds: [1] }],
+      ["REQ", "sub0", { kinds: [1] }],
+    ]);
+  });
+
+  it("does not resend a subscription closed for a different reason", async () => {
+    const signAuthEvent = vi.fn(async (template) => ({ ...EVENT, ...template, id: "auth-id" }));
+    const { client, sockets, connected } = connectedClient({ signAuthEvent });
+    await connected;
+
+    client.subscribe([{ kinds: [1] }], { onEvent: () => undefined });
+    sockets[0].emit(["CLOSED", "sub0", "restricted: insufficient scope"]);
+
+    await authenticate(sockets, signAuthEvent);
+    await vi.waitFor(() => expect(client.status()).toBe("authenticated"));
+
+    expect(sockets[0].frames().filter((frame) => frame[0] === "REQ")).toHaveLength(1);
+  });
+
+  it("does not resend a subscription the caller already gave up on", async () => {
+    const signAuthEvent = vi.fn(async (template) => ({ ...EVENT, ...template, id: "auth-id" }));
+    const { client, sockets, connected } = connectedClient({ signAuthEvent });
+    await connected;
+
+    const subscription = client.subscribe([{ kinds: [1] }], { onEvent: () => undefined });
+    sockets[0].emit(["CLOSED", "sub0", "auth-required"]);
+    subscription.close();
+
+    await authenticate(sockets, signAuthEvent);
+    await vi.waitFor(() => expect(client.status()).toBe("authenticated"));
+
+    expect(sockets[0].frames().filter((frame) => frame[0] === "REQ")).toHaveLength(1);
+  });
+});
+
 describe("publishing", () => {
   it("resolves on OK true and rejects on OK false", async () => {
     const { client, sockets, connected } = connectedClient();
@@ -300,6 +358,23 @@ describe("stopping reconnect after a confirmed AUTH rejection", () => {
     vi.advanceTimersByTime(2000);
     expect(sockets).toHaveLength(2);
     expect(client.status()).toBe("connecting");
+    vi.useRealTimers();
+  });
+
+  it("stops reconnecting when the local signer declines to sign, not just on a relay OK false", async () => {
+    vi.useFakeTimers();
+    const signAuthEvent = vi.fn(async () => {
+      throw new Error("window.nostr call cancelled");
+    });
+    const { client, sockets, connected } = connectedClient({ signAuthEvent });
+    await connected;
+    sockets[0].emit(["AUTH", "challenge-123"]);
+    await vi.waitFor(() => expect(signAuthEvent).toHaveBeenCalled());
+
+    sockets[0].drop();
+    vi.advanceTimersByTime(60_000);
+    expect(sockets).toHaveLength(1);
+    expect(client.status()).toBe("closed");
     vi.useRealTimers();
   });
 
