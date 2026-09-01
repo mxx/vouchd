@@ -24,25 +24,87 @@ changing it silently.
   already-supported model at the protocol layer, independent of Buzz's own
   desktop-managed-agent feature.
 
-## The one hard problem: two signing paths, not one
+## The one hard problem: two signing operations, one chosen identity
 
 Most Nostr apps have exactly one signing story ("call `window.nostr.signEvent`").
-This app has two, and mixing them up is a real security bug, not a style
-choice:
+This app has two operations that need a signature, and they are not
+symmetric — one of them can legitimately go through either of two signing
+*capabilities*, and the other can only ever go through one:
 
-1. **Day-to-day event signing** (publishing a member-add, a profile update,
-   whatever this app itself does as its own pubkey) — goes through NIP-07
-   (`src/signer/nip07Signer.ts`). The extension holds the key; this app never
-   sees it.
+1. **Day-to-day event signing** — relay AUTH (NIP-42) and every event this
+   app publishes as its own pubkey (a member-add, a profile update, …).
+   Either signing capability can do this: a NIP-07 extension, or
+   `OwnerKeystore` producing a normal `finalizeEvent`-signed event from the
+   decrypted owner key. **Which one is used is the owner's explicit choice
+   per connection** (`CommunityPanel`'s "Sign in as" selector, wired through
+   `useCommunityConnection.ts`'s `IdentitySource`), never an automatic
+   preference — see "Why neither signer is preferred" below for why picking
+   silently would be wrong even though NIP-07 sounds like the safer default.
 2. **NIP-OA `auth` tag minting** (`src/protocol/nipOA.ts`) — this is a raw
    BIP-340 Schnorr signature over a *non-event* preimage
    (`nostr:agent-auth:<agent_pubkey>:<conditions>`). Standard NIP-07's
    `signEvent` cannot produce this — it only signs well-formed Nostr events.
    Minting therefore requires the **owner's raw secret key in page memory**
-   for this one operation. `src/signer/ownerKeystore.ts` is the only place
-   in this codebase where that secret key exists in plaintext; it should stay
-   that way. Treat any change that lets owner secret material flow through
-   any other module as a regression.
+   for this one operation, with no alternative. `src/signer/ownerKeystore.ts`
+   is the only place in this codebase where that secret key exists in
+   plaintext; it should stay that way. Treat any change that lets owner
+   secret material flow through any other module as a regression.
+
+### Why neither signer is preferred
+
+The instinct is to default day-to-day signing to NIP-07 whenever an
+extension is present, since it never puts a raw key in this page's memory.
+That instinct undersells NIP-07's own exposure: an installed extension holds
+*standing* signing capability for as long as it's installed and unlocked —
+an attacker who compromises this page (XSS, a poisoned dependency) can ask
+it to sign anything, any time, for as long as the tab is open. `OwnerKeystore`
+by contrast holds nothing between calls: `withOwnerSecret()` decrypts, signs,
+and zeroes the bytes before returning, so the same compromise only gets a
+window measured in one call, not the tab's whole lifetime.
+
+Neither is strictly safer, so this app makes neither the default. The owner
+picks, every time, which capability signs for a given connection.
+
+### Two threats, and which of these defends against which
+
+This distinction only matters once it's clear what's actually being
+defended against, because the two designs below answer two different
+threats:
+
+- **A compromised page** (XSS, a poisoned dependency) — independent of who
+  is legitimately operating this app. `OwnerKeystore`'s decrypt-per-operation
+  discipline is the defense: it bounds *how long* a compromise can reach
+  plaintext, to one call instead of a standing capability.
+- **An unauthorized second operator** — someone other than the owner using
+  this UI. This app assumes only the owner ever does (there's no multi-user
+  concept here at all: whoever opens this page can read anything it can
+  read, including, transiently, the owner's key), so this threat is out of
+  scope by that premise, not defended against by a mechanism.
+
+`OwnerKeystore`'s API is shaped for the first threat and only the first —
+see its own header comment.
+
+### Per-operation passphrase, never cached
+
+Following from the same discipline: nothing in this app holds a passphrase
+in memory between signs, even across several signs in the same minute.
+`src/signer/passphraseProvider.ts`'s `ownerKeystoreSigner` asks fresh via a
+`PassphraseProvider` on *every* call it makes, and `withOwnerSecret()` zeroes
+the decrypted key in a `finally` every time — so an `OwnerKeystore`-backed
+connection prompts for the passphrase on every AUTH and every publish, not
+once per session. `src/app/useOwnerPassphrasePrompt.ts` is today's concrete
+`PassphraseProvider`: a plain `<input type="password">` modal
+(`src/shared/ui/PassphrasePrompt.tsx`). The `PassphraseProvider` interface
+exists specifically so that a future input method (e.g. reading a passphrase
+off a QR code) can replace or supplement it without touching any signer.
+
+A prompt that goes unanswered (the owner stepped away during an unattended
+auto-reconnect) is not new failure machinery: the signer's promise simply
+never resolves until someone answers, or rejects if they cancel — and a
+rejection there is indistinguishable, to `RelayClient`, from a NIP-07
+extension declining to sign. Both land in the same `authRejected`-stops-
+reconnect path documented in `relayClient.ts`'s own comments and in
+`CHANGELOG.md` (the fix for the status flicker between `open` and `closed`).
 
 ## Module map
 
@@ -63,9 +125,14 @@ src/protocol/     pure logic, no React, no UI state. Portable to a future
                      Deliberately a subset of buzz-sdk's builders.rs.
 
 src/signer/       the ONLY place secret material touches this app.
-  nip07Signer.ts    day-to-day signing; never sees a raw secret key
-  ownerKeystore.ts  AES-GCM at rest under a PBKDF2 key; the only way to the
-                     plaintext is withOwnerSecret(), which wipes in a finally
+  nip07Signer.ts      one signing capability; never sees a raw secret key
+  ownerKeystore.ts    the other. NIP-49 (ncryptsec) at rest -- a real Nostr
+                       standard, so an already-encrypted key from elsewhere
+                       imports verbatim, no re-encrypt round trip. Only way
+                       to the plaintext is withOwnerSecret(), wiped after.
+  passphraseProvider.ts  ownerKeystoreSigner: OwnerKeystore + a passphrase
+                       ask -> a plain SignEvent, so callers don't know a
+                       human is involved. Never caches the passphrase.
   indexedDbStorage.ts  its own database, separate from the disposable one
 
 src/readmodel/    local IndexedDB projection. Cache, not authority.
@@ -77,6 +144,10 @@ src/readmodel/    local IndexedDB projection. Cache, not authority.
 
 src/app/          composition. Session owns relay+projection; hooks adapt it
                    to React; App wires panels together and nothing more.
+  useCommunityConnection.ts  builds the chosen signer (IdentitySource) and
+                   owns the relay session's lifecycle.
+  useOwnerPassphrasePrompt.ts  the concrete PassphraseProvider: one pending
+                   request at a time, resolved/rejected by the human.
 
 src/features/     communities/ (relay URL + status), agents/ (owner key,
                    minting, directory), membership/ (add to channel),
@@ -94,13 +165,19 @@ chosen). This makes the relay the single shared, durable, cross-device audit
 source — consistent with the rest of this ecosystem's philosophy that "the
 relay was the management plane all along."
 
-The entry is signed by the owner's day-to-day NIP-07 identity, not the
-keystore (`src/protocol/events/audit.ts`), and carries the same `auth` tag
-that was minted, so anyone reading it can verify the attestation themselves
-rather than trusting the claim. `readmodel/projector.ts` only records an
-entry when that embedded tag verifies *and* recovers the pubkey that
-actually signed the event — otherwise someone could republish another
-owner's valid tag inside their own audit entry.
+The entry is a normal event (`src/protocol/events/audit.ts`) signed through
+whichever signing capability the connection is using -- NIP-07 or the
+keystore, see "Two signing operations, one chosen identity" above -- never
+by the keystore's *other*, raw-preimage signature that produced the minted
+`auth` tag in the first place. It carries that same `auth` tag, so anyone
+reading it can verify the attestation themselves rather than trusting the
+claim. `readmodel/projector.ts` only records an entry when that embedded
+tag verifies *and* the pubkey it recovers matches whoever actually signed
+the audit event — otherwise someone could republish another owner's valid
+tag inside their own audit entry. This is why the two signing capabilities
+are expected to be the same owner identity, not two different people's: the
+check would otherwise reject every audit entry signed by whichever
+capability didn't mint the tag.
 
 Current UI limitation, not a protocol one: the audit panel only shows
 history for the agent currently "in focus" (just minted, or clicked via

@@ -7,12 +7,17 @@
  * and asking someone to hand-convert before pasting is a needless failure
  * point this app can just not have.
  *
- * Each function also rejects the *other* prefix explicitly, rather than
- * letting it fall through to a generic "not valid hex" error further down
- * the call chain. Pasting a secret key into a public-key field (or the
- * reverse) is exactly the kind of mistake worth naming plainly, since the
- * generic error would otherwise read as "hex was wrong" and hide what
- * actually happened.
+ * Each function also rejects prefixes that clearly belong to a different
+ * key shape, rather than letting them fall through to a generic "not valid
+ * hex" error further down the call chain. Pasting a secret key into a
+ * public-key field (or the reverse) is exactly the kind of mistake worth
+ * naming plainly, since the generic error would otherwise read as "hex was
+ * wrong" and hide what actually happened. `decodeSecretKeyInput` also
+ * rejects `ncryptsec1...` (NIP-49, an already-*encrypted* secret key,
+ * src/protocol/nip49.ts): decoding it here would either fail confusingly
+ * (it isn't bech32-decodable the way nsec is) or, worse, succeed into
+ * meaningless bytes, so the rejection is explicit rather than left to
+ * whatever nip19.decode() happens to do with it.
  */
 
 import { nip19 } from "nostr-tools";
@@ -38,6 +43,11 @@ export function decodeSecretKeyInput(input: string): Uint8Array | string {
   const lower = trimmed.toLowerCase();
   if (lower.startsWith("npub1")) {
     throw new KeyFormatError("this is a public key (npub), not a secret key");
+  }
+  if (lower.startsWith("ncryptsec1")) {
+    throw new KeyFormatError(
+      "this is an encrypted secret key (ncryptsec); pass it to the keystore directly instead of decoding it here",
+    );
   }
   if (!lower.startsWith("nsec1")) return trimmed;
   const decoded = decodeBech32(trimmed);

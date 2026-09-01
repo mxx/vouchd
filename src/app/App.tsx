@@ -1,12 +1,15 @@
 /**
  * Composition root: assembles the panels and owns nothing else.
  *
- * Every panel below works on its own terms — the owner-key and attestation
- * panels never touch the relay, and the directory never touches a key. That
- * separation isn't incidental; it's the two-signing-path rule from
- * docs/ARCHITECTURE.md showing up in the component tree. All the state and
- * wiring behind these props lives in useVouchdApp — this function's only
- * job is deciding what's on screen.
+ * The owner-key panel is the only place a raw secret is ever typed; every
+ * other panel that needs that key to sign something (Community's relay
+ * connection, and RegisterAgentPanel's own minting field) asks for a
+ * *passphrase*, never the secret itself -- OwnerKeystore is the only holder
+ * of plaintext, for the duration of one call (docs/ARCHITECTURE.md). The
+ * `<PassphrasePrompt>` rendered here is that ask, for whichever signer
+ * (relay AUTH, day-to-day publish) currently needs it; RegisterAgentPanel
+ * keeps its own inline field rather than routing through it, since minting
+ * is a single deliberate action already shaped around asking for one.
  */
 
 import { AgentsPanel } from "../features/agents/AgentsPanel";
@@ -16,6 +19,7 @@ import { AuditPanel } from "../features/audit/AuditPanel";
 import { CommunityPanel } from "../features/communities/CommunityPanel";
 import { CreateChannelPanel } from "../features/membership/CreateChannelPanel";
 import { MembershipPanel } from "../features/membership/MembershipPanel";
+import { PassphrasePrompt } from "../shared/ui/PassphrasePrompt";
 import { useVouchdApp } from "./useVouchdApp";
 
 function IdentityLine({ pubkey, available }: { pubkey: string | null; available: boolean }) {
@@ -26,11 +30,12 @@ function IdentityLine({ pubkey, available }: { pubkey: string | null; available:
 
 export function App() {
   const app = useVouchdApp();
-  const { keystore, connection, rows, channels, nip07, canPublish, publish } = app;
+  const { keystore, connection, passphrasePrompt, rows, channels, nip07, canPublish, publish } = app;
   const { focusedAgent, setFocusedAgent, auditEntries } = app;
 
   return (
     <div className="shell">
+      {passphrasePrompt.pending ? <PassphrasePrompt request={passphrasePrompt.pending} /> : null}
       <header>
         <h1>vouchd</h1>
         <p>Authorize agents to speak in your community, wherever they run.</p>

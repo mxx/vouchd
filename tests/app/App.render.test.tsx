@@ -48,7 +48,7 @@ describe("App mounts", () => {
   it("offers to store an owner key when the keystore is empty", async () => {
     render(<App />);
     expect(await screen.findByLabelText(/Owner secret key/)).toBeDefined();
-    expect(screen.getByRole("button", { name: /Encrypt and store/ })).toBeDefined();
+    expect(screen.getByRole("button", { name: /Store owner key/ })).toBeDefined();
   });
 
   it("shows the empty-directory copy before any agent is observed", () => {

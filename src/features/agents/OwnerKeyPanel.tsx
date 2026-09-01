@@ -48,11 +48,12 @@ function ImportKeyForm({
       <p className="hint caveat">
         Attestations are raw Schnorr signatures over a non-event preimage, which a NIP-07
         extension cannot produce. That is why this key has to live here — encrypted at rest,
-        decrypted only for the instant it signs.
+        decrypted only for the instant it signs. Pasting an already-encrypted key (ncryptsec)
+        stores it as-is; the passphrase below is only checked, not re-applied.
       </p>
       <Field
         id="owner-secret"
-        label="Owner secret key (64 hex or nsec)"
+        label="Owner secret key (64 hex, nsec, or an encrypted ncryptsec)"
         mono
         onChange={setSecret}
         type="password"
@@ -60,7 +61,7 @@ function ImportKeyForm({
       />
       <Field
         id="owner-pass"
-        label="Passphrase to encrypt it with"
+        label="Passphrase (to encrypt it with, or to unlock an ncryptsec paste)"
         onChange={setPassphrase}
         type="password"
         value={passphrase}
@@ -69,7 +70,7 @@ function ImportKeyForm({
         disabled={!secret.trim() || !passphrase}
         onClick={() => onStore(secret.trim(), passphrase)}
       >
-        Encrypt and store
+        Store owner key
       </button>
       <ErrorText error={error} />
     </Panel>

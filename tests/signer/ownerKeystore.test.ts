@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
-import { createMemoryStorage, KeystoreError, OwnerKeystore } from "@/signer/ownerKeystore";
+import {
+  createMemoryStorage,
+  KeystoreError,
+  OwnerKeystore,
+  type EncryptedSecret,
+  type KeystoreStorage,
+} from "@/signer/ownerKeystore";
+import { encryptSecretKey } from "@/protocol/nip49";
 import { computeAuthTag, verifyAuthTag } from "@/protocol/nipOA";
 
 const SECRET = "0000000000000000000000000000000000000000000000000000000000000001";
@@ -99,6 +106,56 @@ describe("bounding the plaintext's lifetime", () => {
     // store() copies before encrypting: wiping a buffer the caller still
     // owns would be a surprising side effect, not a security win.
     expect(bytesToHex(input)).toBe(SECRET);
+  });
+});
+
+describe("importing an already-encrypted key", () => {
+  it("accepts an ncryptsec whose passphrase checks out, storing it verbatim", async () => {
+    const ncryptsec = encryptSecretKey(hexToBytes(SECRET), PASSPHRASE);
+    const store = keystore();
+    expect(await store.store(ncryptsec, PASSPHRASE)).toBe(OWNER_PUBKEY);
+    const roundTripped = await store.withOwnerSecret(PASSPHRASE, (secret) => bytesToHex(secret));
+    expect(roundTripped).toBe(SECRET);
+  });
+
+  it("rejects an ncryptsec import when the passphrase doesn't unlock it", async () => {
+    const ncryptsec = encryptSecretKey(hexToBytes(SECRET), PASSPHRASE);
+    await expect(keystore().store(ncryptsec, "wrong")).rejects.toThrow(KeystoreError);
+  });
+});
+
+describe("an old-format (pre-NIP-49) record", () => {
+  function storageWithV1Record(): KeystoreStorage {
+    // Shaped like the bespoke PBKDF2+AES-GCM record this keystore used to
+    // write, before NIP-49 became the at-rest format. There is no migration
+    // path (see EncryptedSecret's doc comment) -- this simulates whatever is
+    // still sitting in a browser's IndexedDB from before that switch.
+    let record: unknown = {
+      version: 1,
+      ownerPubkey: OWNER_PUBKEY,
+      salt: "not-real",
+      iv: "not-real",
+      ciphertext: "not-real",
+      iterations: 600_000,
+    };
+    return {
+      load: async () => record as EncryptedSecret | null,
+      save: async (next) => {
+        record = next;
+      },
+      clear: async () => {
+        record = null;
+      },
+    };
+  }
+
+  it("is treated as absent, not as a record to migrate", async () => {
+    const store = new OwnerKeystore(storageWithV1Record());
+    expect(await store.status()).toBe("empty");
+    expect(await store.ownerPubkey()).toBeNull();
+    await expect(store.withOwnerSecret(PASSPHRASE, () => undefined)).rejects.toThrow(
+      KeystoreError,
+    );
   });
 });
 

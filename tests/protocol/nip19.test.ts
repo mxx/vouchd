@@ -55,4 +55,10 @@ describe("decodeSecretKeyInput", () => {
   it("rejects a corrupted nsec", () => {
     expect(() => decodeSecretKeyInput("nsec1notreallyabech32string")).toThrow(KeyFormatError);
   });
+
+  it("rejects an ncryptsec -- an encrypted key, not a raw secret", () => {
+    expect(() => decodeSecretKeyInput("ncryptsec1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq")).toThrow(
+      /encrypted secret key \(ncryptsec\)/,
+    );
+  });
 });

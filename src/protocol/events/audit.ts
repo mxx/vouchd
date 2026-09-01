@@ -1,9 +1,12 @@
 /**
  * The audit trail: an ordinary relay event recording that an owner minted
- * or renewed a NIP-OA attestation for an agent. Signed by the owner's
- * day-to-day identity (NIP-07) -- never by the keystore that produced the
- * attestation's raw signature. That split is the two-signing-path rule from
- * docs/ARCHITECTURE.md: the keystore's only output is ever that one Schnorr
+ * or renewed a NIP-OA attestation for an agent. Signed as a normal event --
+ * through whichever signing capability the connection is using (NIP-07 or
+ * the owner keystore, see docs/ARCHITECTURE.md's "Two signing operations,
+ * one chosen identity") -- never with the keystore's *other*, raw-preimage
+ * signature that produced the attestation itself. That distinction is a
+ * hard boundary regardless of which capability is doing the day-to-day
+ * signing: the keystore's raw-preimage output is only ever that one Schnorr
  * signature, so it stays untouched here even though this event describes
  * what that signature was for.
  *

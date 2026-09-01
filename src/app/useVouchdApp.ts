@@ -15,6 +15,10 @@ import { useAgentRows } from "./useAgentRows";
 import { useAuditEntries } from "./useAuditEntries";
 import { useChannels } from "./useChannels";
 import { useNip07, type Nip07State } from "./useNip07";
+import {
+  type OwnerPassphrasePrompt,
+  useOwnerPassphrasePrompt,
+} from "./useOwnerPassphrasePrompt";
 import { useReadModel } from "./useReadModel";
 import type { AgentRow } from "../features/agents/AgentsPanel";
 import type { AuditRecord, ChannelRecord } from "../readmodel/records";
@@ -22,6 +26,8 @@ import type { AuditRecord, ChannelRecord } from "../readmodel/records";
 export interface VouchdAppState {
   keystore: OwnerKeystore;
   connection: CommunityConnection;
+  /** The pending owner-passphrase prompt (if any) for App to render. */
+  passphrasePrompt: OwnerPassphrasePrompt;
   rows: AgentRow[];
   channels: ChannelRecord[];
   nip07: Nip07State;
@@ -35,7 +41,8 @@ export interface VouchdAppState {
 export function useVouchdApp(): VouchdAppState {
   const db = useReadModel();
   const keystore = useMemo(() => new OwnerKeystore(createIndexedDbStorage()), []);
-  const connection = useCommunityConnection(db);
+  const passphrasePrompt = useOwnerPassphrasePrompt();
+  const connection = useCommunityConnection(db, keystore, passphrasePrompt.requestPassphrase);
   const rows = useAgentRows(db, connection.session);
   const channels = useChannels(db, connection.session);
   const nip07 = useNip07();
@@ -44,12 +51,23 @@ export function useVouchdApp(): VouchdAppState {
   // agent am I working with right now" is one idea, not two pieces of state.
   const [focusedAgent, setFocusedAgent] = useState<string | undefined>(undefined);
   const auditEntries = useAuditEntries(db, connection.session, focusedAgent);
-  const canPublish = Boolean(connection.session && nip07.available);
 
   const publish = (template: EventTemplate) =>
     connection.session
       ? connection.session.publish(template)
       : Promise.reject(new Error("not connected to a community"));
 
-  return { keystore, connection, rows, channels, nip07, focusedAgent, setFocusedAgent, auditEntries, canPublish, publish };
+  return {
+    keystore,
+    connection,
+    passphrasePrompt,
+    rows,
+    channels,
+    nip07,
+    focusedAgent,
+    setFocusedAgent,
+    auditEntries,
+    canPublish: connection.canPublish,
+    publish,
+  };
 }

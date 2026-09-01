@@ -10,6 +10,31 @@ bullet list in `README.md` and that list only ever grew stale.
 
 ### Added
 
+- `OwnerKeystore`'s at-rest format is now NIP-49 (`ncryptsec1...`) instead of
+  a bespoke PBKDF2+AES-GCM scheme -- a real Nostr standard other clients
+  already export/import, so pasting an already-encrypted key now stores it
+  verbatim (the passphrase is only checked, never re-applied through a
+  second encryption layer). No migration from the old format: nothing built
+  on it was ever released, so a leftover old-format record is simply treated
+  as if no key were stored.
+- The owner secret key field also accepts an `ncryptsec1...` import, in
+  addition to hex and nsec; pasting one there routes to the keystore's new
+  encrypted-import path rather than being decoded as a raw secret.
+- The Community panel now asks which identity should sign for a connection
+  ("Sign in as": browser extension, or the owner key) instead of always
+  preferring NIP-07 when an extension happens to be present -- an installed
+  extension is its own standing, un-auditable signing capability, not a
+  strictly safer default, so the choice is the owner's every time, not this
+  app's. The chosen signer covers both NIP-42 AUTH and every event this app
+  publishes afterward, so a connection has exactly one identity.
+- Owner-key-backed signing (relay AUTH, day-to-day publishing) now asks for
+  the passphrase interactively, per operation, through a small modal
+  (`PassphraseProvider` / `useOwnerPassphrasePrompt`) rather than caching it
+  -- the same decrypt-per-operation discipline `OwnerKeystore` already
+  applied to minting, extended to these two call sites. An unanswered or
+  declined prompt fails the sign the same way a NIP-07 extension declining
+  already did, so it stops auto-reconnect through the existing mechanism
+  rather than needing new failure handling.
 - Key inputs (agent pubkey, owner secret) now accept `npub1...`/`nsec1...`
   bech32 (NIP-19), not just raw hex -- every Nostr client displays npub/nsec,
   never hex, so requiring hex meant hand-converting before every paste.
