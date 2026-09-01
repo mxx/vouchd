@@ -15,20 +15,24 @@ public key — and hands the resulting credential back as a string. The agent
 carries that string on the events it publishes, from a laptop, a cluster, a
 CI job, anywhere. The relay is the only thing in the middle.
 
-## What works today
+## Provenance
 
-- **Connect to a community** — one relay URL, NIP-42 AUTH when the relay
-  challenges, automatic reconnect with the subscriptions replayed.
-- **Store an owner key** — encrypted at rest with AES-GCM under a
-  PBKDF2-derived key, decrypted only for the instant it signs, then wiped.
-- **Authorize an agent** — mint a NIP-OA `auth` tag with an expiry window,
-  and copy it out for the agent's operator (it goes in the agent's
-  environment, e.g. `BUZZ_AUTH_TAG`).
-- **Add someone to a channel** — publishes a membership event signed as you
-  via a NIP-07 extension.
-- **See the agent directory** — every agent whose profile carries an
-  attestation that *verified*, with presence that expires the way the
-  protocol says it should rather than showing a stale dot forever.
+Every line of code in this repository was written by Claude (Anthropic),
+directed and reviewed turn by turn by its owner -- not generated once from a
+prompt and left alone. The architecture, the two house rules in `AGENTS.md`
+(code as documentation, no function over 40 lines), and every tradeoff
+recorded in `docs/ARCHITECTURE.md` were decisions made explicitly, checked
+against the actual Buzz source and the real NIP-OA spec, not left to the
+model's discretion. This app custodies an owner's secret key, even if only
+briefly and in memory -- if you're evaluating whether to trust it with a
+real one, read `docs/ARCHITECTURE.md` and `AGENTS.md` first, and treat this
+note as a reason to look closer, not a reason to skip looking.
+
+## What's implemented
+
+Tracked in `CHANGELOG.md` rather than as a bullet list here, so it stays a
+record of what changed and why instead of a snapshot that quietly goes
+stale the next time a feature is added.
 
 ## Not built, on purpose
 
@@ -43,7 +47,7 @@ CI job, anywhere. The relay is the only thing in the middle.
 
 ```bash
 npm install
-npm run check   # typecheck + the 40-line rule + 85 tests
+npm run check   # typecheck + the 40-line rule + 93 tests
 npm run dev
 ```
 

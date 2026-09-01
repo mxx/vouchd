@@ -23,22 +23,6 @@ changing it silently.
   `buzz/docs/remote-agents.md` §Launchers for why this is a legitimate,
   already-supported model at the protocol layer, independent of Buzz's own
   desktop-managed-agent feature.
-- **No WASM.** A Rust (`buzz-sdk`) → WASM path was prototyped for the NIP-OA
-  logic and abandoned: `secp256k1-sys`'s C build needs a wasm-capable clang
-  (Apple's shipped clang doesn't have the WebAssembly LLVM backend),
-  `getrandom`/`uuid` need explicit backend wiring on `wasm32-unknown-unknown`,
-  and a transitive `idna`/ICU4X Unicode data table alone added over 1MB to
-  the binary for a URL-parsing feature nothing here needs. `src/protocol/`
-  is a hand-written TypeScript reimplementation instead, validated against
-  the official NIP-OA.md test vectors (see `tests/protocol/nipOA.test.ts`).
-- **No ClojureScript.** Considered for `src/protocol/`; rejected because
-  that layer is mostly thin interop over `@noble/curves`/`nostr-tools`
-  (where CLJS's data-orientation doesn't help and its JS-interop syntax adds
-  ceremony on nearly every line), and because a CLJS module inside an
-  otherwise-TS app loses compile-time type checking at the exact boundary
-  (UI calling into protocol code) where protocol-correctness bugs are most
-  costly. Would reconsider for a *whole* app rewrite in CLJS+reagent, which
-  is a different, bigger decision than "just the logic layer."
 
 ## The one hard problem: two signing paths, not one
 
