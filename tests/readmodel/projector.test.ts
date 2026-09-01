@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { finalizeEvent } from "nostr-tools/pure";
+import { hexToBytes } from "@noble/hashes/utils";
 import { computeAuthTag } from "@/protocol/nipOA";
 import type { SignedEvent } from "@/protocol/relayMessages";
 import { projectEvent } from "@/readmodel/projector";
@@ -6,21 +8,24 @@ import { effectivePresence, PRESENCE_TTL_SECONDS } from "@/readmodel/presence";
 
 const OWNER_SECRET = "0000000000000000000000000000000000000000000000000000000000000001";
 const OWNER_PUBKEY = "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798";
+const AGENT_SECRET = "0000000000000000000000000000000000000000000000000000000000000002";
 const AGENT_PUBKEY = "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5";
 const CHANNEL = "3f2504e0-4f89-41d3-9a0c-0305e82c3301";
 const AT = 1_700_000_000;
 
-function event(overrides: Partial<SignedEvent>): SignedEvent {
-  return {
-    id: "a".repeat(64),
-    pubkey: AGENT_PUBKEY,
+const OWNER_SECRET_BYTES = hexToBytes(OWNER_SECRET);
+const AGENT_SECRET_BYTES = hexToBytes(AGENT_SECRET);
+
+type EventOverrides = Partial<Pick<SignedEvent, "created_at" | "kind" | "tags" | "content">>;
+
+function event(overrides: EventOverrides, signer = AGENT_SECRET_BYTES): SignedEvent {
+  return finalizeEvent({
     created_at: AT,
     kind: 1,
     tags: [],
     content: "",
-    sig: "c".repeat(128),
     ...overrides,
-  };
+  }, Uint8Array.from(signer)) as SignedEvent;
 }
 
 function agentProfile(content: string, conditions = "kind=1"): SignedEvent {
@@ -57,6 +62,18 @@ describe("agents are discovered from verified attestations, not claims", () => {
     const tampered = [...forged];
     tampered[3] = "0".repeat(128);
     expect(projectEvent(event({ kind: 0, content: "{}", tags: [tampered] }))).toEqual([]);
+  });
+
+  it("ignores a profile whose Nostr event signature is invalid", () => {
+    const forged = agentProfile("{}");
+    forged.sig = "0".repeat(128);
+    expect(projectEvent(forged)).toEqual([]);
+  });
+
+  it("ignores an event whose id is not its canonical hash", () => {
+    const forged = agentProfile("{}");
+    forged.id = "0".repeat(64);
+    expect(projectEvent(forged)).toEqual([]);
   });
 
   it("still records the agent when its profile metadata is unparseable", () => {
@@ -163,9 +180,8 @@ describe("audit log", () => {
     const authTag = computeAuthTag(OWNER_SECRET, AGENT_PUBKEY, conditions);
     return event({
       kind: 7373,
-      pubkey: signerPubkey,
       tags: [["p", AGENT_PUBKEY], ["action", action], [...authTag]],
-    });
+    }, signerPubkey === OWNER_PUBKEY ? OWNER_SECRET_BYTES : AGENT_SECRET_BYTES);
   }
 
   it("records a register entry, keyed by the owner the auth tag actually names", () => {
@@ -174,7 +190,7 @@ describe("audit log", () => {
         store: "auditLog",
         op: "put",
         value: {
-          id: "a".repeat(64),
+          id: expect.stringMatching(/^[0-9a-f]{64}$/),
           agentPubkey: AGENT_PUBKEY,
           ownerPubkey: OWNER_PUBKEY,
           action: "register",
@@ -198,9 +214,15 @@ describe("audit log", () => {
   });
 
   it("ignores an entry with no auth tag to serve as evidence", () => {
-    const stripped = auditEvent("register");
-    stripped.tags = stripped.tags.filter((tag) => tag[0] !== "auth");
-    expect(projectEvent(stripped)).toEqual([]);
+    // Signed from scratch without an auth tag -- mutating tags on an
+    // already-signed event would invalidate its own Nostr signature and get
+    // caught by isValidNostrEvent() instead, never reaching the check this
+    // test means to exercise (projectAuditEntry's own "no auth tag" guard).
+    const noAuthTag = event(
+      { kind: 7373, tags: [["p", AGENT_PUBKEY], ["action", "register"]] },
+      OWNER_SECRET_BYTES,
+    );
+    expect(projectEvent(noAuthTag)).toEqual([]);
   });
 });
 

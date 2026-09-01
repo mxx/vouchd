@@ -43,6 +43,11 @@ bullet list in `README.md` and that list only ever grew stale.
 - The Community panel shows the relay's last NOTICE text, so a rejected
   NIP-42 AUTH (or any other relay-side refusal) has a visible reason instead
   of just an unexplained status change.
+- `projectEvent()` now verifies a raw event's own signature (its `id`
+  matches its canonical hash, and `sig` verifies against `pubkey`) before
+  projecting it into the read-model, closing a gap where nothing in this
+  codebase checked that at all -- a malformed or unsigned event previously
+  projected exactly like a real one as long as its shape matched.
 
 ### Fixed
 

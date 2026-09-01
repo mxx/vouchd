@@ -24,6 +24,7 @@ import {
 import { verifyAuthTag } from "../protocol/nipOA";
 import type { SignedEvent } from "../protocol/relayMessages";
 import type { AgentRecord, AuditRecord, ChannelRecord, MemberRecord, PresenceRecord } from "./records";
+import { validateEvent, verifiedSymbol, verifyEvent } from "nostr-tools/pure";
 
 export type Mutation =
   | { store: "agents"; op: "put"; value: AgentRecord }
@@ -35,6 +36,30 @@ export type Mutation =
 
 function tagValue(event: SignedEvent, name: string): string | undefined {
   return event.tags.find((tag) => tag[0] === name)?.[1];
+}
+
+/**
+ * A relay is allowed to forward an event without checking its NIP-OA tag, but
+ * the client must still check the event itself before treating that tag as
+ * provenance. `validateEvent` checks the NIP-01 shape; `verifyEvent` checks
+ * that the id is the canonical hash and the Schnorr signature belongs to the
+ * declared pubkey. Keeping this gate here means every projection path gets
+ * the same trust boundary, including audit entries and presence updates.
+ */
+function isValidNostrEvent(event: unknown): event is SignedEvent {
+  if (!validateEvent(event)) return false;
+  const candidate = event as SignedEvent;
+  if (!Number.isSafeInteger(candidate.kind) || !Number.isSafeInteger(candidate.created_at)) {
+    return false;
+  }
+  if (!/^[0-9a-f]{64}$/.test(candidate.id) || !/^[0-9a-f]{128}$/.test(candidate.sig)) {
+    return false;
+  }
+  // Verify a copy so `verifyEvent` cannot trust a cached verified-symbol flag
+  // left on an object that a caller mutated after it was signed.
+  const copy = { ...candidate } as Parameters<typeof verifyEvent>[0];
+  delete copy[verifiedSymbol];
+  return verifyEvent(copy);
 }
 
 /**
@@ -168,6 +193,7 @@ function projectAuditEntry(event: SignedEvent): Mutation[] {
 }
 
 export function projectEvent(event: SignedEvent): Mutation[] {
+  if (!isValidNostrEvent(event)) return [];
   switch (event.kind) {
     case KIND_PROFILE:
       return projectProfile(event);

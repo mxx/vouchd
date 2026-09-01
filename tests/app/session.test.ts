@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
+import { finalizeEvent } from "nostr-tools/pure";
+import { hexToBytes } from "@noble/hashes/utils";
 import { computeAuthTag } from "@/protocol/nipOA";
 import type { SignedEvent } from "@/protocol/relayMessages";
 import type { WebSocketLike } from "@/protocol/relayClient";
@@ -7,6 +9,7 @@ import { SessionError, VouchdSession } from "@/app/session";
 
 const OWNER_SECRET = "0000000000000000000000000000000000000000000000000000000000000001";
 const OWNER_PUBKEY = "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798";
+const AGENT_SECRET = "0000000000000000000000000000000000000000000000000000000000000002";
 const AGENT_PUBKEY = "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5";
 
 class FakeSocket implements WebSocketLike {
@@ -44,15 +47,15 @@ function fakeDb() {
 
 function attestedProfile(): SignedEvent {
   const authTag = computeAuthTag(OWNER_SECRET, AGENT_PUBKEY, "kind=1");
-  return {
-    id: "a".repeat(64),
-    pubkey: AGENT_PUBKEY,
-    created_at: 1_700_000_000,
-    kind: 0,
-    tags: [[...authTag]],
-    content: JSON.stringify({ display_name: "Release Bot" }),
-    sig: "c".repeat(128),
-  };
+  return finalizeEvent(
+    {
+      created_at: 1_700_000_000,
+      kind: 0,
+      tags: [[...authTag]],
+      content: JSON.stringify({ display_name: "Release Bot" }),
+    },
+    hexToBytes(AGENT_SECRET),
+  ) as SignedEvent;
 }
 
 async function startedSession(overrides = {}) {
