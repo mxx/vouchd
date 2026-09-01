@@ -5,7 +5,7 @@ stages:
 default:
   interruptible: true
   tags:
-    - alpha-docker
+    - r3060-docker
   cache:
     key:
       files:
@@ -28,7 +28,7 @@ browser:
   stage: browser
   image: mcr.microsoft.com/playwright:v1.62.1-noble
   tags:
-    - alpha-docker
+    - r3060-docker
   script:
     - npm ci --cache .npm --prefer-offline
     - npm run build
