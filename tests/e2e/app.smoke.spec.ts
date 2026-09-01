@@ -18,7 +18,9 @@ test("persists the relay URL entered by the user", async ({ page }) => {
 
   const relay = page.getByLabel("Relay URL");
   await relay.fill("wss://relay.example.test");
-  await expect(page.getByRole("button", { name: "Connect" })).toBeEnabled();
+  const connect = page.getByRole("button", { name: "Connect" });
+  await expect(connect).toBeEnabled();
+  await connect.click();
   await page.reload();
 
   await expect(page.getByLabel("Relay URL")).toHaveValue("wss://relay.example.test");
