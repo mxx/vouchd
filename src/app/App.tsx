@@ -3,13 +3,14 @@
  *
  * The owner-key panel is the only place a raw secret is ever typed; every
  * other panel that needs that key to sign something (Community's relay
- * connection, and RegisterAgentPanel's own minting field) asks for a
- * *passphrase*, never the secret itself -- OwnerKeystore is the only holder
- * of plaintext, for the duration of one call (docs/ARCHITECTURE.md). The
- * `<PassphrasePrompt>` rendered here is that ask, for whichever signer
- * (relay AUTH, day-to-day publish) currently needs it; RegisterAgentPanel
- * keeps its own inline field rather than routing through it, since minting
- * is a single deliberate action already shaped around asking for one.
+ * connection, RegisterAgentPanel's minting) asks for a *passphrase*, never
+ * the secret itself -- OwnerKeystore is the only holder of plaintext, for
+ * the duration of one call (docs/ARCHITECTURE.md). The single
+ * `<PassphrasePrompt>` rendered here is that one ask, shared by every
+ * caller (relay AUTH, day-to-day publish, minting) rather than each
+ * growing its own inline field -- minting used to have one, and it meant
+ * typing the same passphrase twice in a row whenever its audit entry also
+ * needed the owner key to publish.
  */
 
 import { AgentsPanel } from "../features/agents/AgentsPanel";
@@ -55,6 +56,7 @@ export function App() {
         onMinted={setFocusedAgent}
         onPublish={publish}
         prefillPubkey={focusedAgent}
+        requestPassphrase={passphrasePrompt.requestPassphrase}
       />
       <AuditPanel agentPubkey={focusedAgent} entries={auditEntries} />
       <CreateChannelPanel canPublish={canPublish} onCreate={publish} />

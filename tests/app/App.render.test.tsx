@@ -25,7 +25,7 @@ describe("App mounts", () => {
     for (const panel of [
       "Community",
       "Owner key",
-      "Authorize an agent",
+      "Authorize a member",
       "Create a channel",
       "Add to a channel",
       "Agents",
