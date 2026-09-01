@@ -9,7 +9,7 @@
 
 import type { ReadModelDb } from "./db";
 import { effectivePresence, type EffectivePresence } from "./presence";
-import type { AgentRecord, ChannelRecord, MemberRecord } from "./records";
+import type { AgentRecord, AuditRecord, ChannelRecord, MemberRecord } from "./records";
 
 export async function listAgents(db: ReadModelDb): Promise<AgentRecord[]> {
   return db.getAll("agents");
@@ -43,4 +43,12 @@ export async function presenceOf(
   nowSeconds: number,
 ): Promise<EffectivePresence> {
   return effectivePresence(await db.get("presence", pubkey), nowSeconds);
+}
+
+/** The audit trail for one agent, oldest first -- a permanent history, not just the latest state. */
+export async function listAuditEntries(db: ReadModelDb, agentPubkey: string): Promise<AuditRecord[]> {
+  const entries = await db.getAll("auditLog");
+  return entries
+    .filter((entry) => entry.agentPubkey === agentPubkey)
+    .sort((a, b) => a.observedAt - b.observedAt);
 }

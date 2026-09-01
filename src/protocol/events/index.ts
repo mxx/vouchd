@@ -8,6 +8,7 @@
  * against the Rust source before you do — a guessed kind is a silent bug.
  */
 
+export * from "./audit";
 export * from "./auth";
 export * from "./authTag";
 export * from "./channel";

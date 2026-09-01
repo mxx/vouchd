@@ -13,6 +13,7 @@
 
 import {
   KIND_ADD_MEMBER,
+  KIND_AUDIT_LOG,
   KIND_CREATE_CHANNEL,
   KIND_JOIN_CHANNEL,
   KIND_LEAVE_CHANNEL,
@@ -22,14 +23,15 @@ import {
 } from "../protocol/kinds";
 import { verifyAuthTag } from "../protocol/nipOA";
 import type { SignedEvent } from "../protocol/relayMessages";
-import type { AgentRecord, ChannelRecord, MemberRecord, PresenceRecord } from "./records";
+import type { AgentRecord, AuditRecord, ChannelRecord, MemberRecord, PresenceRecord } from "./records";
 
 export type Mutation =
   | { store: "agents"; op: "put"; value: AgentRecord }
   | { store: "channels"; op: "put"; value: ChannelRecord }
   | { store: "members"; op: "put"; value: MemberRecord }
   | { store: "members"; op: "delete"; channelId: string; pubkey: string }
-  | { store: "presence"; op: "put"; value: PresenceRecord };
+  | { store: "presence"; op: "put"; value: PresenceRecord }
+  | { store: "auditLog"; op: "put"; value: AuditRecord };
 
 function tagValue(event: SignedEvent, name: string): string | undefined {
   return event.tags.find((tag) => tag[0] === name)?.[1];
@@ -126,6 +128,45 @@ function projectPresence(event: SignedEvent): Mutation[] {
   ];
 }
 
+function isAuditAction(value: string | undefined): value is "register" | "renew" {
+  return value === "register" || value === "renew";
+}
+
+/**
+ * An audit entry is trusted only as far as its embedded evidence checks
+ * out: the `auth` tag must verify against the `p`-tagged agent, AND the
+ * pubkey that signature recovers must be the pubkey that signed *this*
+ * event. Without that second check, anyone could republish someone else's
+ * valid auth tag inside their own audit entry and misattribute the action.
+ */
+function projectAuditEntry(event: SignedEvent): Mutation[] {
+  const agentPubkey = tagValue(event, "p");
+  const action = tagValue(event, "action");
+  const authTag = event.tags.find((tag) => tag[0] === "auth");
+  if (!agentPubkey || !authTag || !isAuditAction(action)) return [];
+  let ownerPubkey: string;
+  try {
+    ownerPubkey = verifyAuthTag(authTag, agentPubkey);
+  } catch {
+    return [];
+  }
+  if (ownerPubkey !== event.pubkey) return [];
+  return [
+    {
+      store: "auditLog",
+      op: "put",
+      value: {
+        id: event.id,
+        agentPubkey,
+        ownerPubkey,
+        action,
+        conditions: authTag[2],
+        observedAt: event.created_at,
+      },
+    },
+  ];
+}
+
 export function projectEvent(event: SignedEvent): Mutation[] {
   switch (event.kind) {
     case KIND_PROFILE:
@@ -139,6 +180,8 @@ export function projectEvent(event: SignedEvent): Mutation[] {
       return projectMembership(event);
     case KIND_PRESENCE_UPDATE:
       return projectPresence(event);
+    case KIND_AUDIT_LOG:
+      return projectAuditEntry(event);
     default:
       return [];
   }

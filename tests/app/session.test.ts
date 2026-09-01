@@ -79,7 +79,7 @@ describe("VouchdSession", () => {
     const { sockets } = await startedSession();
     const req = JSON.parse(sockets[0].sent[0]);
     expect(req[0]).toBe("REQ");
-    expect(req[2].kinds).toEqual([0, 9007, 9000, 9001, 9021, 9022, 20001]);
+    expect(req[2].kinds).toEqual([0, 9007, 9000, 9001, 9021, 9022, 20001, 7373]);
   });
 
   it("projects an attested profile into the read model and notifies listeners", async () => {

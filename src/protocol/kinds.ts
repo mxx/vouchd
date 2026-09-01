@@ -38,10 +38,21 @@ export const KIND_PRESENCE_UPDATE = 20001;
 export const KIND_AUTH = 22242;
 
 /**
- * TODO (not yet assigned): a platform-local kind for publishing our own
- * audit trail ("owner X authorized agent Y at T with conditions C") as a
- * relay event instead of a local database -- see docs/ARCHITECTURE.md.
- * Pick a number in Nostr's addressable/regular custom range and register it
- * here once decided; do not invent one silently in feature code.
+ * vouchd's own audit trail: publishing NIP-OA authorization actions ("owner
+ * X authorized/renewed agent Y at T with conditions C") as an ordinary relay
+ * event instead of a local database -- see docs/ARCHITECTURE.md and
+ * features/audit/README.md for why. This is NOT a Buzz kind: buzz-core's
+ * kind.rs has no entry for it, because it's a vouchd-only concept layered on
+ * top of Buzz's protocol, not part of Buzz itself.
+ *
+ * 7373 was chosen deliberately, not invented on the spot: checked against
+ * the nostr-protocol/nips kind registry (github.com/nostr-protocol/nips) on
+ * 2026-08-31 -- unclaimed by any NIP, sitting in the wide-open 5000-8999 gap
+ * where new official kinds are unlikely to land, and well clear of both the
+ * official NIP-29 9000-9030 block and this app's own 9000/9001/9007/9021/
+ * 9022/10100/20001/22242. It is a *regular* kind (not replaceable, ephemeral,
+ * or addressable) on purpose: an audit trail's entire point is a permanent,
+ * appendable history, and any other event class would let the relay quietly
+ * discard everything but the latest entry.
  */
-export const KIND_VOUCHD_AUDIT_TODO = undefined;
+export const KIND_AUDIT_LOG = 7373;

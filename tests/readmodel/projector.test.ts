@@ -154,6 +154,56 @@ describe("presence", () => {
   });
 });
 
+describe("audit log", () => {
+  function auditEvent(
+    action: string,
+    conditions = "kind=1",
+    signerPubkey: string = OWNER_PUBKEY,
+  ): SignedEvent {
+    const authTag = computeAuthTag(OWNER_SECRET, AGENT_PUBKEY, conditions);
+    return event({
+      kind: 7373,
+      pubkey: signerPubkey,
+      tags: [["p", AGENT_PUBKEY], ["action", action], [...authTag]],
+    });
+  }
+
+  it("records a register entry, keyed by the owner the auth tag actually names", () => {
+    expect(projectEvent(auditEvent("register"))).toEqual([
+      {
+        store: "auditLog",
+        op: "put",
+        value: {
+          id: "a".repeat(64),
+          agentPubkey: AGENT_PUBKEY,
+          ownerPubkey: OWNER_PUBKEY,
+          action: "register",
+          conditions: "kind=1",
+          observedAt: AT,
+        },
+      },
+    ]);
+  });
+
+  it("accepts renew the same way", () => {
+    expect(projectEvent(auditEvent("renew"))[0]).toMatchObject({ value: { action: "renew" } });
+  });
+
+  it("ignores an unrecognized action", () => {
+    expect(projectEvent(auditEvent("revoke"))).toEqual([]);
+  });
+
+  it("ignores an entry signed by a key other than the one its own auth tag names as owner", () => {
+    expect(projectEvent(auditEvent("register", "kind=1", AGENT_PUBKEY))).toEqual([]);
+  });
+
+  it("ignores an entry with no auth tag to serve as evidence", () => {
+    const stripped = auditEvent("register");
+    stripped.tags = stripped.tags.filter((tag) => tag[0] !== "auth");
+    expect(projectEvent(stripped)).toEqual([]);
+  });
+});
+
 describe("everything else", () => {
   it("projects nothing for kinds this app does not model", () => {
     expect(projectEvent(event({ kind: 9, content: "a chat message" }))).toEqual([]);

@@ -9,27 +9,41 @@
 
 import { type DBSchema, type IDBPDatabase, deleteDB, openDB } from "idb";
 import type { Mutation } from "./projector";
-import type { AgentRecord, ChannelRecord, MemberRecord, PresenceRecord } from "./records";
+import type { AgentRecord, AuditRecord, ChannelRecord, MemberRecord, PresenceRecord } from "./records";
 
 const DB_NAME = "vouchd-readmodel";
-const DB_VERSION = 1;
+// v2 added `auditLog`. Bumping this without guarding each createObjectStore
+// call below would throw on every browser that already has a v1 database --
+// see the `contains` checks in upgrade().
+const DB_VERSION = 2;
 
 interface ReadModelSchema extends DBSchema {
   agents: { key: string; value: AgentRecord };
   channels: { key: string; value: ChannelRecord };
   members: { key: [string, string]; value: MemberRecord };
   presence: { key: string; value: PresenceRecord };
+  auditLog: { key: string; value: AuditRecord };
 }
 
 export type ReadModelDb = IDBPDatabase<ReadModelSchema>;
 
+/**
+ * idb re-runs this whole function on every version bump, not just the
+ * delta, so each store creation has to be guarded -- otherwise upgrading a
+ * browser that already has a v1 database throws "store already exists" on
+ * the four stores that predate `auditLog`.
+ */
 export async function openReadModel(): Promise<ReadModelDb> {
   return openDB<ReadModelSchema>(DB_NAME, DB_VERSION, {
     upgrade(db) {
-      db.createObjectStore("agents", { keyPath: "pubkey" });
-      db.createObjectStore("channels", { keyPath: "channelId" });
-      db.createObjectStore("members", { keyPath: ["channelId", "pubkey"] });
-      db.createObjectStore("presence", { keyPath: "pubkey" });
+      const names = db.objectStoreNames;
+      if (!names.contains("agents")) db.createObjectStore("agents", { keyPath: "pubkey" });
+      if (!names.contains("channels")) db.createObjectStore("channels", { keyPath: "channelId" });
+      if (!names.contains("members")) {
+        db.createObjectStore("members", { keyPath: ["channelId", "pubkey"] });
+      }
+      if (!names.contains("presence")) db.createObjectStore("presence", { keyPath: "pubkey" });
+      if (!names.contains("auditLog")) db.createObjectStore("auditLog", { keyPath: "id" });
     },
   });
 }

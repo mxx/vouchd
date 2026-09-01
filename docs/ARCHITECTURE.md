@@ -73,7 +73,8 @@ src/protocol/     pure logic, no React, no UI state. Portable to a future
                      injected, never imported.
   events/           tag-array builders for the kinds this app publishes:
                      membership (9000/9001/9021/9022), channel (9007),
-                     profile (0), presence (20001), NIP-42 AUTH (22242), and
+                     profile (0), presence (20001), NIP-42 AUTH (22242),
+                     the audit trail (7373, vouchd's own, not Buzz's), and
                      attachAuthTag for agents carrying an attestation.
                      Deliberately a subset of buzz-sdk's builders.rs.
 
@@ -103,12 +104,25 @@ src/features/     communities/ (relay URL + status), agents/ (owner key,
 A pure-browser app has no shared server-side database. Rather than accept
 "every operator's browser has its own untrustworthy local audit log,"
 authorization actions (owner X authorized agent Y at time T under conditions
-C) get published as their own relay event. This makes the relay the single
-shared, durable, cross-device audit source — consistent with the rest of
-this ecosystem's philosophy that "the relay was the management plane all
-along." The exact kind number for this is not yet assigned — see
-`KIND_VOUCHD_AUDIT_TODO` in `src/protocol/kinds.ts`; pick one before shipping
-the audit feature, don't invent it silently in feature code.
+C) are published as their own relay event, kind:7373 (`KIND_AUDIT_LOG` in
+`src/protocol/kinds.ts` — see that file's comment for how the number was
+chosen). This makes the relay the single shared, durable, cross-device audit
+source — consistent with the rest of this ecosystem's philosophy that "the
+relay was the management plane all along."
+
+The entry is signed by the owner's day-to-day NIP-07 identity, not the
+keystore (`src/protocol/events/audit.ts`), and carries the same `auth` tag
+that was minted, so anyone reading it can verify the attestation themselves
+rather than trusting the claim. `readmodel/projector.ts` only records an
+entry when that embedded tag verifies *and* recovers the pubkey that
+actually signed the event — otherwise someone could republish another
+owner's valid tag inside their own audit entry.
+
+Current UI limitation, not a protocol one: the audit panel only shows
+history for the agent currently "in focus" (just minted, or clicked via
+"re-authorize") — see `App.tsx`'s `focusedAgent` state. A full cross-agent
+audit feed is possible (the events are all on the relay) but wasn't asked
+for yet.
 
 ## Deployment
 

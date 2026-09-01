@@ -48,3 +48,18 @@ export interface PresenceRecord {
   status: string;
   observedAt: number;
 }
+
+/**
+ * One entry in the audit trail (kind:7373): an owner authorizing or
+ * renewing an agent. `ownerPubkey` here is the event's own signer, already
+ * cross-checked against the embedded auth tag's recovered owner in
+ * projector.ts -- an audit entry only exists in this store if that matched.
+ */
+export interface AuditRecord {
+  id: string;
+  agentPubkey: string;
+  ownerPubkey: string;
+  action: "register" | "renew";
+  conditions: string;
+  observedAt: number;
+}

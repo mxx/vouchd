@@ -3,6 +3,7 @@ import {
   attachAuthTag,
   AuthTagError,
   buildAddMember,
+  buildAuditEntry,
   buildCreateChannel,
   buildJoin,
   buildLeave,
@@ -110,5 +111,22 @@ describe("attaching a NIP-OA auth tag", () => {
   it("refuses a second auth tag instead of overwriting the first", () => {
     const once = attachAuthTag(buildPresenceUpdate("online", AT), tag);
     expect(() => attachAuthTag(once, tag)).toThrow(AuthTagError);
+  });
+});
+
+describe("audit trail entries", () => {
+  const authTag = ["auth", "a".repeat(64), "kind=1", "b".repeat(128)] as unknown as AuthTag;
+
+  it("is kind:7373 carrying the agent, the action, and the auth tag as evidence", () => {
+    expect(buildAuditEntry("register", AGENT, authTag, AT)).toEqual({
+      kind: 7373,
+      tags: [["p", AGENT], ["action", "register"], [...authTag]],
+      content: "",
+      created_at: AT,
+    });
+  });
+
+  it("carries whichever action the caller asks for", () => {
+    expect(buildAuditEntry("renew", AGENT, authTag, AT).tags[1]).toEqual(["action", "renew"]);
   });
 });
