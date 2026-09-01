@@ -67,6 +67,16 @@ describe("registerAgent", () => {
     expect(verifyAuthTag(result.authTag, AGENT_PUBKEY)).toBe(OWNER_PUBKEY);
   });
 
+  it("accepts an npub, since that is what every Nostr client actually shows", async () => {
+    const keystore = await loadedKeystore();
+    const result = await registerAgent(keystore, {
+      agentPubkey: "npub1ccz8l9zpa47k6vz9gphftsrumpw80rjt3nhnefat4symjhrsnmjs38mnyd",
+      conditions: {},
+      passphrase: PASSPHRASE,
+    });
+    expect(verifyAuthTag(result.authTag, AGENT_PUBKEY)).toBe(OWNER_PUBKEY);
+  });
+
   it("fails on a wrong passphrase without producing a tag", async () => {
     const keystore = await loadedKeystore();
     await expect(

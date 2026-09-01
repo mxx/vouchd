@@ -8,20 +8,25 @@
  * into a stack trace.
  */
 
+import { decodePubkeyInput } from "../nip19";
+
 export class EventBuildError extends Error {}
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 /**
- * Pubkeys go on the wire lowercase. Buzz's own builders call
- * `to_ascii_lowercase()` rather than rejecting mixed case, so we normalize
- * too — a caller pasting an uppercase hex key from another tool is a
- * routine mistake, not a protocol violation worth failing on.
+ * Pubkeys go on the wire as lowercase hex, but people copy them as `npub1...`
+ * — every Nostr client displays that, never hex — so this accepts either and
+ * always returns hex. Buzz's own builders call `to_ascii_lowercase()` rather
+ * than rejecting mixed case, so we normalize case too — a caller pasting an
+ * uppercase hex key from another tool is a routine mistake, not a protocol
+ * violation worth failing on.
  */
 export function normalizePubkey(pubkey: string, label = "pubkey"): string {
-  const normalized = pubkey.trim().toLowerCase();
+  const decoded = decodePubkeyInput(pubkey);
+  const normalized = decoded.trim().toLowerCase();
   if (!/^[0-9a-f]{64}$/.test(normalized)) {
-    throw new EventBuildError(`${label} must be 64 hex chars, got: "${pubkey}"`);
+    throw new EventBuildError(`${label} must be 64 hex chars or an npub, got: "${pubkey}"`);
   }
   return normalized;
 }

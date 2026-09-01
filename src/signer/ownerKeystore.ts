@@ -29,6 +29,7 @@
 
 import { schnorr } from "@noble/curves/secp256k1";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
+import { decodeSecretKeyInput } from "../protocol/nip19";
 
 export class KeystoreError extends Error {}
 
@@ -98,8 +99,8 @@ export class OwnerKeystore {
 
   /** Encrypt and store an owner secret, replacing whatever was there. */
   async store(ownerSecret: Uint8Array | string, passphrase: string): Promise<string> {
-    const secretBytes =
-      typeof ownerSecret === "string" ? hexToBytes(ownerSecret) : Uint8Array.from(ownerSecret);
+    const decoded = typeof ownerSecret === "string" ? decodeSecretKeyInput(ownerSecret) : ownerSecret;
+    const secretBytes = typeof decoded === "string" ? hexToBytes(decoded) : Uint8Array.from(decoded);
     if (secretBytes.length !== 32) {
       throw new KeystoreError(`owner secret must be 32 bytes, got ${secretBytes.length}`);
     }

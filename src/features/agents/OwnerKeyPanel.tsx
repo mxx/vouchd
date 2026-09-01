@@ -52,7 +52,7 @@ function ImportKeyForm({
       </p>
       <Field
         id="owner-secret"
-        label="Owner secret key (64 hex)"
+        label="Owner secret key (64 hex or nsec)"
         mono
         onChange={setSecret}
         type="password"

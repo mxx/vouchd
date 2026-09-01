@@ -51,6 +51,13 @@ describe("storing and unlocking", () => {
     await expect(keystore().store("00", PASSPHRASE)).rejects.toThrow(KeystoreError);
   });
 
+  it("accepts an nsec, since that is what every Nostr client actually shows", async () => {
+    const store = keystore();
+    expect(await store.store("nsec1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqsmhltgl", PASSPHRASE)).toBe(OWNER_PUBKEY);
+    const roundTripped = await store.withOwnerSecret(PASSPHRASE, (secret) => bytesToHex(secret));
+    expect(roundTripped).toBe(SECRET);
+  });
+
   it("forgets the key on clear()", async () => {
     const store = keystore();
     await store.store(SECRET, PASSPHRASE);

@@ -24,6 +24,7 @@ import {
 } from "./registerAgent";
 import type { OwnerKeystore } from "../../signer/ownerKeystore";
 import { Field } from "../../shared/ui/Field";
+import { normalizePubkey } from "../../protocol/events/validate";
 import { ErrorText, Panel } from "../../shared/ui/Panel";
 
 type AuditStatus = "idle" | "not-connected" | "published" | "failed";
@@ -124,7 +125,7 @@ function MintForm({
     <>
       <Field
         id="agent-pubkey"
-        label="Agent public key (64 hex)"
+        label="Agent public key (hex or npub)"
         mono
         onChange={(value) => onChange({ agentPubkey: value })}
         placeholder="the key its operator generated — never its secret"
@@ -195,8 +196,8 @@ export function RegisterAgentPanel({
     setError(null);
     setResult(null);
     setAuditStatus("idle");
-    const agentPubkey = draft.agentPubkey.trim().toLowerCase();
     try {
+      const agentPubkey = normalizePubkey(draft.agentPubkey);
       const minted = await registerAgent(keystore, buildMintRequest(draft, agentPubkey));
       setResult(minted);
       setDraft({ ...draft, passphrase: "" });

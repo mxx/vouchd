@@ -16,6 +16,7 @@
 
 import { computeAuthTag } from "../../protocol/nipOA";
 import type { AuthTag } from "../../protocol/nipOA";
+import { normalizePubkey } from "../../protocol/events/validate";
 import type { OwnerKeystore } from "../../signer/ownerKeystore";
 import { buildConditions, type ConditionsDraft } from "./conditionsBuilder";
 
@@ -38,8 +39,9 @@ export async function registerAgent(
   request: RegisterAgentRequest,
 ): Promise<RegisterAgentResult> {
   const conditions = buildConditions(request.conditions);
+  const agentPubkey = normalizePubkey(request.agentPubkey, "agent pubkey");
   const authTag = await keystore.withOwnerSecret(request.passphrase, (ownerSecret) =>
-    computeAuthTag(ownerSecret, request.agentPubkey.trim().toLowerCase(), conditions),
+    computeAuthTag(ownerSecret, agentPubkey, conditions),
   );
   return {
     authTag,
