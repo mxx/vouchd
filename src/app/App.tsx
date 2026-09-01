@@ -38,6 +38,7 @@ export function App() {
       </header>
       <CommunityPanel
         error={connection.error}
+        notice={connection.notice}
         onConnect={connection.connect}
         onDisconnect={connection.disconnect}
         status={connection.status}

@@ -94,6 +94,17 @@ export class RelayClient {
   private reconnectAttempt = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private closedByCaller = false;
+  /**
+   * Set when the relay's OK confirms an AUTH rejection, cleared by the next
+   * explicit connect(). A close that follows a confirmed rejection is not
+   * something retrying will fix -- the identity was refused, not dropped --
+   * so it stops the auto-reconnect loop rather than retrying forever with
+   * the same doomed credentials. (If a socket stays open after a rejection
+   * -- reading is often still allowed -- and only closes much later for an
+   * unrelated reason, this flag can still be stale true; accepted as a rare
+   * corner case rather than tracked precisely.)
+   */
+  private authRejected = false;
   private nextSubscriptionId = 0;
   private pendingAuthEventId: string | null = null;
 
@@ -109,6 +120,7 @@ export class RelayClient {
   /** Opens the socket. Resolves when the relay accepts the connection. */
   connect(): Promise<void> {
     this.closedByCaller = false;
+    this.authRejected = false;
     if (this.currentStatus === "open" || this.currentStatus === "authenticated") {
       return Promise.resolve();
     }
@@ -243,8 +255,13 @@ export class RelayClient {
       return;
     }
     this.pendingAuthEventId = null;
-    if (accepted) this.setStatus("authenticated");
-    else this.options.onNotice?.(`AUTH rejected: ${message}`);
+    if (accepted) {
+      this.authRejected = false;
+      this.setStatus("authenticated");
+    } else {
+      this.authRejected = true;
+      this.options.onNotice?.(`AUTH rejected: ${message}`);
+    }
   }
 
   /**
@@ -274,12 +291,18 @@ export class RelayClient {
     }
   }
 
+  /**
+   * `closedByCaller` distinguishes "we hung up" from "the relay did" (only
+   * the latter reconnects); `authRejected` distinguishes "network hiccup"
+   * from "the relay just told us who we are isn't welcome here" (only the
+   * former retries -- see the field's own comment for why).
+   */
   private handleClose(): void {
     this.socket = null;
     this.pendingAuthEventId = null;
     this.failPending(new RelayClientError("connection closed before the relay replied"));
     this.setStatus("closed");
-    if (!this.closedByCaller) this.scheduleReconnect();
+    if (!this.closedByCaller && !this.authRejected) this.scheduleReconnect();
   }
 
   private failPending(error: Error): void {

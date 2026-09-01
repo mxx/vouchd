@@ -33,11 +33,14 @@ function rememberRelayUrl(url: string): void {
 export function CommunityPanel({
   status,
   error,
+  notice,
   onConnect,
   onDisconnect,
 }: {
   status: ConnectionStatus;
   error: unknown;
+  /** The relay's last NOTICE, if any -- see useCommunityConnection. */
+  notice?: string | null;
   onConnect: (relayUrl: string) => void;
   onDisconnect: () => void;
 }) {
@@ -68,6 +71,7 @@ export function CommunityPanel({
         </button>
       </div>
       <p className="status">Status: {status}</p>
+      {notice ? <p className="hint">Relay says: {notice}</p> : null}
       <ErrorText error={error} />
     </Panel>
   );

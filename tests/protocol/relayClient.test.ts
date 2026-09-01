@@ -261,3 +261,65 @@ describe("resilience", () => {
     expect(client.status()).toBe("open");
   });
 });
+
+describe("stopping reconnect after a confirmed AUTH rejection", () => {
+  /** Drives one AUTH challenge through to a confirmed rejection. */
+  async function rejectAuth(
+    sockets: FakeSocket[],
+    connected: Promise<void>,
+    signAuthEvent: ReturnType<typeof vi.fn>,
+  ): Promise<void> {
+    await connected;
+    sockets[0].emit(["AUTH", "challenge-123"]);
+    await vi.waitFor(() => expect(signAuthEvent).toHaveBeenCalled());
+    sockets[0].emit(["OK", "auth-id", false, "blocked: not a member"]);
+  }
+
+  it("does not schedule a reconnect once the relay has confirmed the rejection", async () => {
+    vi.useFakeTimers();
+    const signAuthEvent = vi.fn(async (template) => ({ ...EVENT, ...template, id: "auth-id" }));
+    const { client, sockets, connected } = connectedClient({ signAuthEvent });
+    await connected;
+    sockets[0].emit(["AUTH", "challenge-123"]);
+    await vi.waitFor(() => expect(signAuthEvent).toHaveBeenCalled());
+    sockets[0].emit(["OK", "auth-id", false, "blocked: not a member"]);
+
+    sockets[0].drop();
+    vi.advanceTimersByTime(60_000);
+    expect(sockets).toHaveLength(1);
+    expect(client.status()).toBe("closed");
+    vi.useRealTimers();
+  });
+
+  it("still reconnects on a plain drop that never involved AUTH", async () => {
+    vi.useFakeTimers();
+    const { client, sockets, connected } = connectedClient();
+    await connected;
+
+    sockets[0].drop();
+    vi.advanceTimersByTime(2000);
+    expect(sockets).toHaveLength(2);
+    expect(client.status()).toBe("connecting");
+    vi.useRealTimers();
+  });
+
+  it("gives a fresh attempt its own chance once the caller connects again", async () => {
+    vi.useFakeTimers();
+    const signAuthEvent = vi.fn(async (template) => ({ ...EVENT, ...template, id: "auth-id" }));
+    const { client, sockets, connected } = connectedClient({ signAuthEvent });
+    await rejectAuth(sockets, connected, signAuthEvent);
+    sockets[0].drop();
+    vi.advanceTimersByTime(60_000);
+    expect(sockets).toHaveLength(1);
+
+    // The user clicks "Connect" again -- a deliberate new attempt, not the
+    // auto-reconnect loop -- and this round never touches AUTH at all.
+    const retried = client.connect();
+    sockets[1].open();
+    await retried;
+    sockets[1].drop();
+    vi.advanceTimersByTime(2000);
+    expect(sockets).toHaveLength(3);
+    vi.useRealTimers();
+  });
+});
