@@ -15,6 +15,17 @@ public key — and hands the resulting credential back as a string. The agent
 carries that string on the events it publishes, from a laptop, a cluster, a
 CI job, anywhere. The relay is the only thing in the middle.
 
+## Relationship to Buzz
+
+vouchd is inspired by Buzz, a Nostr human-bot hybrid relay/platform, and
+speaks NIP-OA -- Buzz's own custom NIP for owner attestation -- along
+with a few of Buzz's custom event kinds where a standard one doesn't
+exist. It is a separate, standalone client, not a fork: it never modifies
+`buzz-relay`, `buzz-desktop`, `buzz-core`, or `buzz-sdk`, and does not
+assume it's the only client talking to a given community. See
+`docs/ARCHITECTURE.md`'s "Not a fork of Buzz" section for the full
+boundary between the two.
+
 ## Provenance
 
 Every line of code in this repository was written by Claude (Anthropic),
