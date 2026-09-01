@@ -5,3 +5,5 @@ dist-smoke/
 .DS_Store
 *.local
 _to_delete/
+playwright-report/
+test-results/

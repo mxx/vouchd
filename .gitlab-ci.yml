@@ -1,0 +1,44 @@
+stages:
+  - verify
+  - browser
+
+default:
+  interruptible: true
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - .npm/
+
+unit:
+  stage: verify
+  image: node:22-bookworm
+  script:
+    - npm ci --cache .npm --prefer-offline
+    - npm run check
+    - npm run build
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+browser:
+  stage: browser
+  image: mcr.microsoft.com/playwright:v1.62.1-noble
+  tags:
+    - alpha-docker
+  script:
+    - npm ci --cache .npm --prefer-offline
+    - npm run build
+    - npm run test:e2e
+  artifacts:
+    when: always
+    expire_in: 14 days
+    reports:
+      junit: test-results/junit.xml
+    paths:
+      - playwright-report/
+      - test-results/
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
