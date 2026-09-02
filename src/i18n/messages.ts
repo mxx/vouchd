@@ -163,8 +163,8 @@ export interface Messages {
   };
 }
 
-export type Language = "en" | "zh";
-export const LANGUAGES: Language[] = ["en", "zh"];
+export type Language = "en" | "zh" | "zh-Hant" | "ja" | "ko" | "es";
+export const LANGUAGES: Language[] = ["en", "zh", "zh-Hant", "ja", "ko", "es"];
 
 /**
  * Each language's own name, in its own script -- shown in the picker
@@ -177,4 +177,8 @@ export const LANGUAGES: Language[] = ["en", "zh"];
 export const LANGUAGE_LABELS: Record<Language, string> = {
   en: "English",
   zh: "简体中文",
+  "zh-Hant": "繁體中文",
+  ja: "日本語",
+  ko: "한국어",
+  es: "Español",
 };

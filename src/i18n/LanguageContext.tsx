@@ -13,9 +13,13 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import { en } from "./en";
 import { zh } from "./zh";
+import { zhHant } from "./zh-Hant";
+import { ja } from "./ja";
+import { ko } from "./ko";
+import { es } from "./es";
 import { LANGUAGES, type Language, type Messages } from "./messages";
 
-const DICTIONARIES: Record<Language, Messages> = { en, zh };
+const DICTIONARIES: Record<Language, Messages> = { en, zh, "zh-Hant": zhHant, ja, ko, es };
 const STORAGE_KEY = "vouchd.language";
 
 function isLanguage(value: string): value is Language {
