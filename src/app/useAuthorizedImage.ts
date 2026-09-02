@@ -6,12 +6,13 @@
  *
  * `failed` is its own field, not folded into `src: undefined`, so a caller
  * can tell "nothing to show" (no picture, or no signer yet) apart from
- * "there's a picture and we tried, but this relay's media host won't serve
- * it to a browser" -- known to happen for buzz.fudu.space specifically: its
- * BUD-11-authorized GET works from curl but its CORS preflight never sends
- * back Access-Control-Allow-Origin, so the browser refuses the real
- * request before this app's code ever sees a response. That's a server
- * config gap outside this app's control, not something a retry fixes.
+ * "there's a picture and we tried, but this relay's media host refused
+ * it" -- a browser without CORS support for this host, a token this
+ * server's BUD-11 check rejects, or any other fetch failure all land here
+ * the same way (fetchAuthorizedBlob swallows the specific cause; see its
+ * docblock). Deliberately not diagnosed further in the UI: the causes are a
+ * moving target as this relay's media host changes, and a wrong guess is
+ * worse than none.
  */
 
 import { useEffect, useState } from "react";

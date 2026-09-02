@@ -126,7 +126,7 @@ export const en: Messages = {
     colStatus: "Status",
     unnamed: "unnamed",
     avatarUnavailable:
-      "Avatar unavailable: this relay's media host doesn't allow browsers to load pictures yet (a server-side CORS gap, not something retrying fixes).",
+      "Avatar unavailable: this relay's media host wouldn't serve this picture to your browser.",
     noChannels: "(none)",
     notSeen: "not seen",
     presenceHint: "no presence within the relay's 180s window",

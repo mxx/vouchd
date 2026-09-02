@@ -47,6 +47,20 @@ bullet list in `README.md` and that list only ever grew stale.
   table shows a placeholder with a tooltip explaining it, instead of just
   quietly showing nothing the way an actual absence of a picture does.
 
+- Fixed: the "unscoped" BUD-11 token from the fix above turned out to still be
+  too narrow -- buzz.fudu.space's Blossom server is stricter than the BUD-11
+  spec text and rejects any get-auth event carrying neither a matching `x` tag
+  nor a `server` tag, with `MediaError::InsufficientScope` (HTTP 403);
+  confirmed by reading the real server source (`buzz-media/src/auth.rs`'s
+  `verify_blossom_get_auth`). The shared token now carries a `server` tag (the
+  picture's own host) -- the same shape Buzz's own desktop client sends
+  (`sign_blossom_get_auth_header` in buzz-desktop), so it's the one shape
+  proven to be accepted. Still one signed token per (signer, host), still
+  reused for a whole visit's worth of avatars. `useAuthorizedImage`'s `failed`
+  message is now generic rather than naming CORS specifically, since a token
+  scope rejection looks identical to a browser CORS refusal from the caller's
+  side and pinning the message to one cause was already an overreach.
+
 - Added a Channels panel that lists every channel this app has observed a create-
   channel event for (name, visibility, type, about) -- a plain listing, distinct
   from actually creating one or adding a member to one. Reachable from a new
