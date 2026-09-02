@@ -108,6 +108,7 @@ function AppShell() {
         <StatBar ownerPubkey={ownerPubkey} relayStatus={connection.status} rows={rows} />
         <CommunityPanel
           error={connection.error}
+          historyMayBeIncomplete={connection.historyMayBeIncomplete}
           nip07Available={nip07.available}
           notice={connection.notice}
           onConnect={connection.connect}

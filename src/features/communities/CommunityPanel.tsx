@@ -49,6 +49,7 @@ export function CommunityPanel({
   status,
   error,
   notice,
+  historyMayBeIncomplete,
   nip07Available,
   onConnect,
   onDisconnect,
@@ -57,6 +58,13 @@ export function CommunityPanel({
   error: unknown;
   /** The relay's last NOTICE, if any -- see useCommunityConnection. */
   notice?: string | null;
+  /**
+   * Set once the structural backfill looks like it hit its page-sized
+   * limit -- see useCommunityConnection. Rendered as its own hint, not
+   * folded into `notice`: that phrase means "the relay said X", and this
+   * is a client-side inference the relay never stated.
+   */
+  historyMayBeIncomplete?: boolean;
   /** Whether a NIP-07 extension is present -- see src/app/useNip07.ts. */
   nip07Available: boolean;
   onConnect: (relayUrl: string, identitySource: IdentitySource) => void;
@@ -100,6 +108,7 @@ export function CommunityPanel({
       </p>
       <p className="status">{t.community.status(status)}</p>
       {notice ? <p className="hint">{t.community.relaySays(notice)}</p> : null}
+      {historyMayBeIncomplete ? <p className="hint">{t.community.historyMayBeIncomplete}</p> : null}
       <ErrorText error={error} />
     </Panel>
   );

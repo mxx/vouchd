@@ -41,6 +41,7 @@ export const zh: Messages = {
     disconnect: "断开",
     status: (status) => `状态:${status}`,
     relaySays: (notice) => `Relay 提示:${notice}`,
+    historyMayBeIncomplete: "部分较早的频道或成员历史可能未加载——此页面仅显示最近的活动。",
     authReason: "登录社区 relay",
   },
   ownerKey: {

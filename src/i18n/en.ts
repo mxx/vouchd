@@ -43,6 +43,8 @@ export const en: Messages = {
     disconnect: "Disconnect",
     status: (status) => `Status: ${status}`,
     relaySays: (notice) => `Relay says: ${notice}`,
+    historyMayBeIncomplete:
+      "Some older channel or membership history may not have loaded -- this page only shows the most recent activity.",
     authReason: "sign in to the community relay",
   },
   ownerKey: {

@@ -52,6 +52,14 @@ export interface CommunityConnection {
    *  -- e.g. picture-loading (AgentsPanel) reuses it rather than assuming
    *  NIP-07, since owner-key connections sign just as validly. */
   signer: SignEvent | undefined;
+  /**
+   * Set once if the session's structural backfill (channels, membership,
+   * audit log) appears to have hit its page-sized limit -- see
+   * `session.ts`'s `onHistoryTruncated`. Distinct from `notice`: this is
+   * this client's own inference from an event count, not something the
+   * relay said.
+   */
+  historyMayBeIncomplete: boolean;
   connect: (relayUrl: string, identitySource: IdentitySource) => void;
   disconnect: () => void;
 }
@@ -67,6 +75,40 @@ function buildSigner(
   return ownerKeystoreSigner(keystore, requestPassphrase, authReason);
 }
 
+function buildSessionDeps(
+  db: ReadModelDb,
+  signer: SignEvent | undefined,
+  setStatus: (status: ConnectionStatus) => void,
+  setNotice: (notice: string | null) => void,
+  setHistoryMayBeIncomplete: (value: boolean) => void,
+): ConstructorParameters<typeof VouchdSession>[1] {
+  return {
+    db,
+    signEvent: signer,
+    signAuthEvent: signer,
+    onStatusChange: setStatus,
+    onNotice: setNotice,
+    onHistoryTruncated: () => setHistoryMayBeIncomplete(true),
+  };
+}
+
+/** Shared by disconnect() and a fresh connect(): every piece of connection state, back to its rest value. */
+function resetConnectionState(setters: {
+  setSession: (session: VouchdSession | null) => void;
+  setStatus: (status: ConnectionStatus) => void;
+  setNotice: (notice: string | null) => void;
+  setCanPublish: (value: boolean) => void;
+  setSigner: (signer: SignEvent | undefined) => void;
+  setHistoryMayBeIncomplete: (value: boolean) => void;
+}): void {
+  setters.setSession(null);
+  setters.setStatus("closed");
+  setters.setNotice(null);
+  setters.setCanPublish(false);
+  setters.setSigner(undefined);
+  setters.setHistoryMayBeIncomplete(false);
+}
+
 export function useCommunityConnection(
   db: ReadModelDb | null,
   keystore: OwnerKeystore,
@@ -78,12 +120,14 @@ export function useCommunityConnection(
   const [notice, setNotice] = useState<string | null>(null);
   const [canPublish, setCanPublish] = useState(false);
   const [signer, setSigner] = useState<SignEvent | undefined>(undefined);
+  const [historyMayBeIncomplete, setHistoryMayBeIncomplete] = useState(false);
   const t = useT();
 
   function connect(relayUrl: string, identitySource: IdentitySource) {
     if (!db) return;
     setError(null);
     setNotice(null);
+    setHistoryMayBeIncomplete(false);
     const signer = buildSigner(identitySource, keystore, requestPassphrase, t.community.authReason);
     setCanPublish(Boolean(signer));
     // A plain `setSigner(signer)` would be wrong: signer is itself a
@@ -92,25 +136,26 @@ export function useCommunityConnection(
     // signer(prevSigner) instead of ever storing it. Wrapping it in an
     // arrow makes the *arrow* the updater, returning signer as the value.
     setSigner(() => signer);
-    const next = new VouchdSession(relayUrl, {
-      db,
-      signEvent: signer,
-      signAuthEvent: signer,
-      onStatusChange: setStatus,
-      onNotice: setNotice,
-    });
+    const deps = buildSessionDeps(db, signer, setStatus, setNotice, setHistoryMayBeIncomplete);
+    const next = new VouchdSession(relayUrl, deps);
     setSession(next);
     void next.start().catch(setError);
   }
 
   function disconnect() {
     session?.stop();
-    setSession(null);
-    setStatus("closed");
-    setNotice(null);
-    setCanPublish(false);
-    setSigner(undefined);
+    resetConnectionState({ setSession, setStatus, setNotice, setCanPublish, setSigner, setHistoryMayBeIncomplete });
   }
 
-  return { session, status, error, notice, canPublish, signer, connect, disconnect };
+  return {
+    session,
+    status,
+    error,
+    notice,
+    canPublish,
+    signer,
+    historyMayBeIncomplete,
+    connect,
+    disconnect,
+  };
 }

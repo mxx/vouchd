@@ -5,7 +5,8 @@ import { computeAuthTag } from "@/protocol/nipOA";
 import type { SignedEvent } from "@/protocol/relayMessages";
 import type { WebSocketLike } from "@/protocol/relayClient";
 import type { ReadModelDb } from "@/readmodel/db";
-import { SessionError, VouchdSession } from "@/app/session";
+import { KIND_JOIN_CHANNEL } from "@/protocol/kinds";
+import { SessionError, STRUCTURAL_BACKFILL_LIMIT, VouchdSession } from "@/app/session";
 
 const OWNER_SECRET = "0000000000000000000000000000000000000000000000000000000000000001";
 const OWNER_PUBKEY = "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798";
@@ -58,6 +59,24 @@ function attestedProfile(): SignedEvent {
   ) as SignedEvent;
 }
 
+/** A self-act join is the cheapest event that produces a `members` mutation. */
+function joinChannelEvent(secret: string): SignedEvent {
+  return finalizeEvent(
+    { created_at: 1_700_000_000, kind: KIND_JOIN_CHANNEL, tags: [["h", "general"]], content: "" },
+    hexToBytes(secret),
+  ) as SignedEvent;
+}
+
+/**
+ * Only `event.kind` needs to be real for the structural backfill's own event
+ * count (see session.ts: the count is incremented before the event reaches
+ * `projectEvent`), so a truncation test can use 500 of these instead of 500
+ * real signatures.
+ */
+function unmodeledStructuralEvent(id: string): SignedEvent {
+  return { id, pubkey: "0".repeat(64), created_at: 0, kind: KIND_JOIN_CHANNEL, tags: [], content: "", sig: "0".repeat(128) };
+}
+
 async function startedSession(overrides = {}) {
   const { db, puts, deletes } = fakeDb();
   const sockets: FakeSocket[] = [];
@@ -78,11 +97,56 @@ async function startedSession(overrides = {}) {
 }
 
 describe("VouchdSession", () => {
-  it("subscribes to exactly the kinds it projects", async () => {
+  it("subscribes to the structural kinds and presence first, profile only after that EOSE", async () => {
     const { sockets } = await startedSession();
     const req = JSON.parse(sockets[0].sent[0]);
     expect(req[0]).toBe("REQ");
-    expect(req[2].kinds).toEqual([0, 9007, 9000, 9001, 9021, 9022, 20001, 7373]);
+    expect(req[2]).toEqual({ kinds: [9007, 9000, 9001, 9021, 9022, 7373], limit: STRUCTURAL_BACKFILL_LIMIT });
+    expect(req[3]).toEqual({ kinds: [20001] });
+    expect(sockets[0].sent).toHaveLength(1);
+
+    sockets[0].emit(["EOSE", "sub0"]);
+    await Promise.resolve();
+
+    const profileReq = JSON.parse(sockets[0].sent[1]);
+    expect(profileReq[0]).toBe("REQ");
+    // No pubkeys were discovered (no structural events arrived), so only the
+    // permanent unscoped live-only filter goes out.
+    expect(profileReq.slice(2)).toEqual([{ kinds: [0], limit: 0 }]);
+  });
+
+  it("scopes the profile backfill to pubkeys discovered in the structural phase", async () => {
+    const { sockets } = await startedSession();
+    sockets[0].emit(["EVENT", "sub0", joinChannelEvent(AGENT_SECRET)]);
+    await Promise.resolve();
+    sockets[0].emit(["EOSE", "sub0"]);
+    await Promise.resolve();
+
+    const profileReq = JSON.parse(sockets[0].sent[1]);
+    expect(profileReq.slice(2)).toEqual([
+      { kinds: [0], authors: [AGENT_PUBKEY], limit: 1 },
+      { kinds: [0], limit: 0 },
+    ]);
+  });
+
+  it("flags history as possibly incomplete once the structural backfill hits its cap", async () => {
+    const onHistoryTruncated = vi.fn();
+    const { sockets } = await startedSession({ onHistoryTruncated });
+    for (let i = 0; i < STRUCTURAL_BACKFILL_LIMIT; i++) {
+      sockets[0].emit(["EVENT", "sub0", unmodeledStructuralEvent(i.toString(16).padStart(64, "0"))]);
+    }
+    sockets[0].emit(["EOSE", "sub0"]);
+    await Promise.resolve();
+    expect(onHistoryTruncated).toHaveBeenCalledOnce();
+  });
+
+  it("does not flag truncation when the structural backfill returns fewer than the cap", async () => {
+    const onHistoryTruncated = vi.fn();
+    const { sockets } = await startedSession({ onHistoryTruncated });
+    sockets[0].emit(["EVENT", "sub0", joinChannelEvent(AGENT_SECRET)]);
+    sockets[0].emit(["EOSE", "sub0"]);
+    await Promise.resolve();
+    expect(onHistoryTruncated).not.toHaveBeenCalled();
   });
 
   it("projects an attested profile into the read model and notifies listeners", async () => {
@@ -90,7 +154,10 @@ describe("VouchdSession", () => {
     const changed = vi.fn();
     session.onChange(changed);
 
-    sockets[0].emit(["EVENT", "sub0", attestedProfile()]);
+    // Profile events only arrive on the second (post-EOSE) subscription.
+    sockets[0].emit(["EOSE", "sub0"]);
+    await Promise.resolve();
+    sockets[0].emit(["EVENT", "sub1", attestedProfile()]);
     // Wait on the notification, not the write: the listener fires one
     // microtask after the put lands, so asserting on `puts` first would race.
     await vi.waitFor(() => expect(changed).toHaveBeenCalledOnce());

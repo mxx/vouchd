@@ -41,6 +41,8 @@ export const ja: Messages = {
     disconnect: "切断",
     status: (status) => `状態:${status}`,
     relaySays: (notice) => `リレーからの通知:${notice}`,
+    historyMayBeIncomplete:
+      "一部の古いチャンネルやメンバーの履歴が読み込まれていない可能性があります。このページには最新の活動のみが表示されます。",
     authReason: "コミュニティのリレーにサインインする",
   },
   ownerKey: {

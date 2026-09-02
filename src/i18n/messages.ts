@@ -58,6 +58,13 @@ export interface Messages {
     disconnect: string;
     status: (status: string) => string;
     relaySays: (notice: string) => string;
+    /**
+     * Shown when the structural backfill (channels/membership/audit log)
+     * appears to have hit its page-sized limit -- distinct from a relay
+     * NOTICE (`relaySays`): this is the client's own inference, not
+     * something the relay reported.
+     */
+    historyMayBeIncomplete: string;
     authReason: string;
   };
   ownerKey: {

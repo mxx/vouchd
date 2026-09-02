@@ -41,6 +41,8 @@ export const es: Messages = {
     disconnect: "Desconectar",
     status: (status) => `Estado: ${status}`,
     relaySays: (notice) => `El relay dice: ${notice}`,
+    historyMayBeIncomplete:
+      "Es posible que parte del historial anterior de canales o miembros no se haya cargado -- esta página solo muestra la actividad más reciente.",
     authReason: "iniciar sesión en el relay de la comunidad",
   },
   ownerKey: {

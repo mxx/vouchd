@@ -41,6 +41,7 @@ export const ko: Messages = {
     disconnect: "연결 해제",
     status: (status) => `상태: ${status}`,
     relaySays: (notice) => `릴레이 알림: ${notice}`,
+    historyMayBeIncomplete: "일부 이전 채널 또는 멤버 기록이 로드되지 않았을 수 있습니다. 이 페이지에는 최근 활동만 표시됩니다.",
     authReason: "커뮤니티 릴레이에 로그인",
   },
   ownerKey: {

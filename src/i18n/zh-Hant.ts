@@ -43,6 +43,7 @@ export const zhHant: Messages = {
     disconnect: "中斷連線",
     status: (status) => `狀態:${status}`,
     relaySays: (notice) => `Relay 提示:${notice}`,
+    historyMayBeIncomplete: "部分較早的頻道或成員歷史可能未載入——此頁面僅顯示最近的活動。",
     authReason: "登入社群 relay",
   },
   ownerKey: {
