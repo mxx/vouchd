@@ -52,8 +52,7 @@ export function App() {
 function AppShell() {
   const app = useVouchdApp();
   const { keystore, ownerPubkey, refreshOwnerPubkey, connection, passphrasePrompt } = app;
-  const { rows, channels, nip07, canPublish, publish } = app;
-  const { focusedAgent, setFocusedAgent, auditEntries } = app;
+  const { rows, channels, nip07, canPublish, publish, focusedAgent, setFocusedAgent, auditEntries, profiles } = app;
   const t = useT();
 
   return (
@@ -70,6 +69,7 @@ function AppShell() {
         <StatBar ownerPubkey={ownerPubkey} relayStatus={connection.status} rows={rows} />
         <CommunityPanel
           error={connection.error}
+          nip07Available={nip07.available}
           notice={connection.notice}
           onConnect={connection.connect}
           onDisconnect={connection.disconnect}
@@ -84,10 +84,10 @@ function AppShell() {
           prefillPubkey={focusedAgent}
           requestPassphrase={passphrasePrompt.requestPassphrase}
         />
-        <AuditPanel agentPubkey={focusedAgent} entries={auditEntries} />
+        <AuditPanel agentPubkey={focusedAgent} entries={auditEntries} profiles={profiles} />
         <CreateChannelPanel canPublish={canPublish} onCreate={publish} />
         <MembershipPanel canPublish={canPublish} channels={channels} onAddMember={publish} />
-        <AgentsPanel onReauthorize={setFocusedAgent} rows={rows} />
+        <AgentsPanel onReauthorize={setFocusedAgent} profiles={profiles} rows={rows} />
       </div>
     </div>
   );

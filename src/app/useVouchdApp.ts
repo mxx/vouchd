@@ -20,9 +20,10 @@ import {
   useOwnerPassphrasePrompt,
 } from "./useOwnerPassphrasePrompt";
 import { useOwnerPubkey } from "./useOwnerPubkey";
+import { useProfiles } from "./useProfiles";
 import { useReadModel } from "./useReadModel";
 import type { AgentRow } from "../features/agents/AgentsPanel";
-import type { AuditRecord, ChannelRecord } from "../readmodel/records";
+import type { AuditRecord, ChannelRecord, ProfileRecord } from "../readmodel/records";
 
 export interface VouchdAppState {
   keystore: OwnerKeystore;
@@ -37,6 +38,7 @@ export interface VouchdAppState {
   focusedAgent: string | undefined;
   setFocusedAgent: (pubkey: string | undefined) => void;
   auditEntries: AuditRecord[];
+  profiles: Map<string, ProfileRecord>;
   canPublish: boolean;
   publish: (template: EventTemplate) => Promise<void>;
 }
@@ -55,6 +57,7 @@ export function useVouchdApp(): VouchdAppState {
   // agent am I working with right now" is one idea, not two pieces of state.
   const [focusedAgent, setFocusedAgent] = useState<string | undefined>(undefined);
   const auditEntries = useAuditEntries(db, connection.session, focusedAgent);
+  const profiles = useProfiles(db, connection.session);
 
   const publish = (template: EventTemplate) =>
     connection.session
@@ -73,6 +76,7 @@ export function useVouchdApp(): VouchdAppState {
     focusedAgent,
     setFocusedAgent,
     auditEntries,
+    profiles,
     canPublish: connection.canPublish,
     publish,
   };

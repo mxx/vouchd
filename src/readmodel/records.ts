@@ -21,6 +21,22 @@ export interface AgentRecord {
   observedAt: number;
 }
 
+/**
+ * Plain NIP-01 metadata for any pubkey the relay showed us a valid kind:0
+ * for -- unlike AgentRecord, no owner attestation is required, because
+ * nothing here claims a relationship, only "this pubkey calls itself X".
+ * Exists so a pubkey that is never an agent (an owner authorizing from its
+ * own key, a channel member) can still get a display name instead of a
+ * wall of hex -- see AuditPanel's "authorized by" column.
+ */
+export interface ProfileRecord {
+  pubkey: string;
+  displayName?: string;
+  picture?: string;
+  about?: string;
+  observedAt: number;
+}
+
 export interface ChannelRecord {
   channelId: string;
   name: string;

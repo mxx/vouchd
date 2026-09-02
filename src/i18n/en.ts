@@ -110,7 +110,7 @@ export const en: Messages = {
     empty: "None observed yet. Agents appear here once they publish a profile carrying a valid owner attestation.",
     title: (count) => `Agents (${count})`,
     colName: "Name",
-    colAgent: "Agent",
+    colMember: "Member",
     colAuthorizedBy: "Authorized by",
     colStatus: "Status",
     unnamed: "unnamed",

@@ -3,16 +3,19 @@
  *
  * The signer is wired in here rather than inside VouchdSession: the session
  * takes signing as a dependency (protocol code must never reach for a key on
- * its own), and this is the layer that legitimately knows which identity the
- * owner picked for this connection.
+ * its own), and this is the layer that legitimately knows which identity
+ * this connection uses.
  *
- * That "picked" is deliberate: `IdentitySource` is chosen explicitly by
- * `connect()`'s caller (see CommunityPanel), never inferred by preferring
- * one signer when both happen to be available. NIP-07 and OwnerKeystore are
- * both a raw signing capability living in this browser; silently preferring
- * one hides from the owner which key is about to sign, on every connection.
- * The SAME signer is used for both NIP-42 AUTH and every event this app
- * publishes afterward -- one connection is one identity, not two.
+ * `IdentitySource` is decided by `connect()`'s caller (see CommunityPanel:
+ * NIP-07 whenever it's present, the owner key otherwise -- there's no
+ * manual override left, because a human choosing "owner key" while an
+ * extension was available never did anything but ask for a passphrase it
+ * didn't need). What matters is that the choice is still *shown*, not made
+ * silently: NIP-07 and OwnerKeystore are both a raw signing capability
+ * living in this browser, and the owner can always see which one a
+ * connection is about to use. The SAME signer is used for both NIP-42 AUTH
+ * and every event this app publishes afterward -- one connection is one
+ * identity, not two.
  */
 
 import { useState } from "react";

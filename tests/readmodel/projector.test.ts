@@ -53,8 +53,21 @@ describe("agents are discovered from verified attestations, not claims", () => {
     ]);
   });
 
-  it("ignores a profile with no auth tag — that's just a person", () => {
-    expect(projectEvent(event({ kind: 0, content: "{}" }))).toEqual([]);
+  it("records a plain profile (no auth tag) into `profiles`, not `agents` — that's just a person", () => {
+    const mutations = projectEvent(event({ kind: 0, content: JSON.stringify({ name: "Alice" }) }));
+    expect(mutations).toEqual([
+      {
+        store: "profiles",
+        op: "put",
+        value: {
+          pubkey: AGENT_PUBKEY,
+          displayName: "Alice",
+          picture: undefined,
+          about: undefined,
+          observedAt: AT,
+        },
+      },
+    ]);
   });
 
   it("ignores a forged auth tag rather than recording unverified provenance", () => {

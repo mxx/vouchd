@@ -23,7 +23,14 @@ import {
 } from "../protocol/kinds";
 import { verifyAuthTag } from "../protocol/nipOA";
 import type { SignedEvent } from "../protocol/relayMessages";
-import type { AgentRecord, AuditRecord, ChannelRecord, MemberRecord, PresenceRecord } from "./records";
+import type {
+  AgentRecord,
+  AuditRecord,
+  ChannelRecord,
+  MemberRecord,
+  PresenceRecord,
+  ProfileRecord,
+} from "./records";
 import { validateEvent, verifiedSymbol, verifyEvent } from "nostr-tools/pure";
 
 export type Mutation =
@@ -32,7 +39,8 @@ export type Mutation =
   | { store: "members"; op: "put"; value: MemberRecord }
   | { store: "members"; op: "delete"; channelId: string; pubkey: string }
   | { store: "presence"; op: "put"; value: PresenceRecord }
-  | { store: "auditLog"; op: "put"; value: AuditRecord };
+  | { store: "auditLog"; op: "put"; value: AuditRecord }
+  | { store: "profiles"; op: "put"; value: ProfileRecord };
 
 function tagValue(event: SignedEvent, name: string): string | undefined {
   return event.tags.find((tag) => tag[0] === name)?.[1];
@@ -68,10 +76,17 @@ function isValidNostrEvent(event: unknown): event is SignedEvent {
  * signature before recording it: NIP-OA says a client MUST NOT display owner
  * provenance for an invalid tag, and an unverified one is worth strictly
  * less than no claim at all.
+ *
+ * A profile with no auth tag at all isn't a forged or unverified claim —
+ * it's just a person (an owner publishing their own identity, say), so it
+ * still gets a name via the `profiles` store, only not an agent record.
+ * A *present but invalid* auth tag is different: that pubkey is actively
+ * claiming a provenance it can't back up, so it gets nothing, same as
+ * before.
  */
 function projectProfile(event: SignedEvent): Mutation[] {
   const authTag = event.tags.find((tag) => tag[0] === "auth");
-  if (!authTag) return [];
+  if (!authTag) return [plainProfile(event)];
   let ownerPubkey: string;
   try {
     ownerPubkey = verifyAuthTag(authTag, event.pubkey);
@@ -94,6 +109,21 @@ function projectProfile(event: SignedEvent): Mutation[] {
       },
     },
   ];
+}
+
+function plainProfile(event: SignedEvent): Mutation {
+  const metadata = parseProfileContent(event.content);
+  return {
+    store: "profiles",
+    op: "put",
+    value: {
+      pubkey: event.pubkey,
+      displayName: metadata.display_name ?? metadata.name,
+      picture: metadata.picture,
+      about: metadata.about,
+      observedAt: event.created_at,
+    },
+  };
 }
 
 function parseProfileContent(content: string): Record<string, string | undefined> {

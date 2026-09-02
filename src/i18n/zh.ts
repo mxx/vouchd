@@ -106,7 +106,7 @@ export const zh: Messages = {
     empty: "尚未发现任何 agent。一旦某个 agent 发布了携带有效 owner attestation 的 profile,就会出现在这里。",
     title: (count) => `Agent(${count})`,
     colName: "名称",
-    colAgent: "Agent",
+    colMember: "成员",
     colAuthorizedBy: "授权方",
     colStatus: "状态",
     unnamed: "未命名",

@@ -116,7 +116,7 @@ export interface Messages {
     empty: string;
     title: (count: number) => string;
     colName: string;
-    colAgent: string;
+    colMember: string;
     colAuthorizedBy: string;
     colStatus: string;
     unnamed: string;

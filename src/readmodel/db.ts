@@ -9,13 +9,20 @@
 
 import { type DBSchema, type IDBPDatabase, deleteDB, openDB } from "idb";
 import type { Mutation } from "./projector";
-import type { AgentRecord, AuditRecord, ChannelRecord, MemberRecord, PresenceRecord } from "./records";
+import type {
+  AgentRecord,
+  AuditRecord,
+  ChannelRecord,
+  MemberRecord,
+  PresenceRecord,
+  ProfileRecord,
+} from "./records";
 
 const DB_NAME = "vouchd-readmodel";
-// v2 added `auditLog`. Bumping this without guarding each createObjectStore
-// call below would throw on every browser that already has a v1 database --
-// see the `contains` checks in upgrade().
-const DB_VERSION = 2;
+// v2 added `auditLog`, v3 added `profiles`. Bumping this without guarding
+// each createObjectStore call below would throw on every browser that
+// already has an older database -- see the `contains` checks in upgrade().
+const DB_VERSION = 3;
 
 interface ReadModelSchema extends DBSchema {
   agents: { key: string; value: AgentRecord };
@@ -23,6 +30,7 @@ interface ReadModelSchema extends DBSchema {
   members: { key: [string, string]; value: MemberRecord };
   presence: { key: string; value: PresenceRecord };
   auditLog: { key: string; value: AuditRecord };
+  profiles: { key: string; value: ProfileRecord };
 }
 
 export type ReadModelDb = IDBPDatabase<ReadModelSchema>;
@@ -44,6 +52,7 @@ export async function openReadModel(): Promise<ReadModelDb> {
       }
       if (!names.contains("presence")) db.createObjectStore("presence", { keyPath: "pubkey" });
       if (!names.contains("auditLog")) db.createObjectStore("auditLog", { keyPath: "id" });
+      if (!names.contains("profiles")) db.createObjectStore("profiles", { keyPath: "pubkey" });
     },
   });
 }

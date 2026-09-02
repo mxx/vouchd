@@ -8,7 +8,7 @@
  * would be a local notebook, not a view of the community.
  */
 
-import type { AgentRecord } from "../../readmodel/records";
+import type { AgentRecord, ProfileRecord } from "../../readmodel/records";
 import type { EffectivePresence } from "../../readmodel/presence";
 import { useT } from "../../i18n";
 import { Panel } from "../../shared/ui/Panel";
@@ -35,18 +35,23 @@ function PresenceCell({ presence }: { presence: EffectivePresence }) {
 
 function AgentRowView({
   row,
+  profiles,
   onReauthorize,
 }: {
   row: AgentRow;
+  profiles: Map<string, ProfileRecord>;
   onReauthorize?: (pubkey: string) => void;
 }) {
   const t = useT();
   const { agent, presence } = row;
+  // The owner is never itself an agent, so its name (if any) only ever
+  // comes from the profiles store, not this row's own AgentRecord.
+  const ownerName = profiles.get(agent.ownerPubkey)?.displayName;
   return (
     <tr>
       <td>{agent.displayName ?? <span className="status">{t.agents.unnamed}</span>}</td>
       <td className="mono" title={agent.pubkey}>{shortKey(agent.pubkey)}</td>
-      <td className="mono" title={agent.ownerPubkey}>{shortKey(agent.ownerPubkey)}</td>
+      <td className="mono" title={agent.ownerPubkey}>{ownerName ?? shortKey(agent.ownerPubkey)}</td>
       <td><PresenceCell presence={presence} /></td>
       <td>
         {onReauthorize ? (
@@ -70,9 +75,11 @@ function EmptyDirectory() {
 
 export function AgentsPanel({
   rows,
+  profiles,
   onReauthorize,
 }: {
   rows: AgentRow[];
+  profiles: Map<string, ProfileRecord>;
   onReauthorize?: (pubkey: string) => void;
 }) {
   const t = useT();
@@ -85,7 +92,7 @@ export function AgentsPanel({
         <thead>
           <tr>
             <th>{t.agents.colName}</th>
-            <th>{t.agents.colAgent}</th>
+            <th>{t.agents.colMember}</th>
             <th>{t.agents.colAuthorizedBy}</th>
             <th>{t.agents.colStatus}</th>
             <th />
@@ -93,7 +100,7 @@ export function AgentsPanel({
         </thead>
         <tbody>
           {rows.map((row) => (
-            <AgentRowView key={row.agent.pubkey} onReauthorize={onReauthorize} row={row} />
+            <AgentRowView key={row.agent.pubkey} onReauthorize={onReauthorize} profiles={profiles} row={row} />
           ))}
         </tbody>
       </table>

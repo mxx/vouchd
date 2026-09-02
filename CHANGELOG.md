@@ -10,6 +10,28 @@ bullet list in `README.md` and that list only ever grew stale.
 
 ### Added
 
+- The agents directory's "authorized by" column also now resolves the owner's
+  display name the same way the audit trail does (full pubkey still available on
+  hover). Its "Agent" column header is renamed to "Member" -- the column itself is
+  unchanged for now, this is just the first step of a wording change still in
+  progress.
+
+- The audit trail's "authorized by" column now shows the owner's display name
+  instead of just a truncated pubkey, when the owner has published a plain kind:0
+  profile (no NIP-OA auth tag -- an owner isn't an agent, so it was never eligible
+  for the existing agent-name lookup). Backed by a new `profiles` IndexedDB store
+  (readmodel v3) that records any pubkey's NIP-01 metadata once its event's own
+  signature verifies, independent of the agents store's stricter owner-attestation
+  check.
+
+- Community's relay connection no longer asks which identity to sign with: a
+  NIP-07 extension is used whenever one is present (it never needs a passphrase
+  and never lets a secret touch the page), and the owner key is the fallback when
+  there isn't one. There was no real decision left for a person to make here --
+  the dropdown just meant either a needless passphrase prompt or a silent read-
+  only connection depending what got picked. Which identity is signing is still
+  shown in the panel, just as text instead of a control.
+
 - The UI was reskinned to "Terminal Grid": a dark, monospace-forward console
   theme (hairline grid background, mint/cyan accents, corner-bracketed panels)
   in place of the old auto light/dark muted-green theme, plus a sidebar app

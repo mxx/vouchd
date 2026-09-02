@@ -9,7 +9,7 @@
 
 import type { ReadModelDb } from "./db";
 import { effectivePresence, type EffectivePresence } from "./presence";
-import type { AgentRecord, AuditRecord, ChannelRecord, MemberRecord } from "./records";
+import type { AgentRecord, AuditRecord, ChannelRecord, MemberRecord, ProfileRecord } from "./records";
 
 export async function listAgents(db: ReadModelDb): Promise<AgentRecord[]> {
   return db.getAll("agents");
@@ -51,4 +51,9 @@ export async function listAuditEntries(db: ReadModelDb, agentPubkey: string): Pr
   return entries
     .filter((entry) => entry.agentPubkey === agentPubkey)
     .sort((a, b) => a.observedAt - b.observedAt);
+}
+
+/** Every pubkey we've seen a valid kind:0 for -- agent or not. */
+export async function listProfiles(db: ReadModelDb): Promise<ProfileRecord[]> {
+  return db.getAll("profiles");
 }
