@@ -131,6 +131,7 @@ export interface Messages {
     colAuthorizedBy: string;
     colStatus: string;
     unnamed: string;
+    avatarUnavailable: string;
     noChannels: string;
     notSeen: string;
     presenceHint: string;

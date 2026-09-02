@@ -38,11 +38,20 @@ function NameCell({ agent, sign }: { agent: AgentRecord; sign: SignEvent | undef
   const t = useT();
   // This relay's media host requires BUD-11 authorization on GET (see
   // protocol/blossom.ts) -- a plain <img src={agent.picture}> just 401s.
-  // No signer means no picture, not a broken-image glyph in its place.
-  const objectUrl = useAuthorizedImage(agent.picture, sign);
+  // No signer means no picture at all, not a broken-image glyph in its
+  // place; `failed` (signer present, fetch tried, this host refused it --
+  // see useAuthorizedImage's docblock) gets its own placeholder instead,
+  // since that one's worth explaining rather than staying silent about.
+  const { src, failed } = useAuthorizedImage(agent.picture, sign);
   return (
     <td title={agent.pubkey}>
-      {objectUrl ? <img alt="" className="avatar" src={objectUrl} /> : null}
+      {src ? (
+        <img alt="" className="avatar" src={src} />
+      ) : failed ? (
+        <span aria-hidden="true" className="avatar avatar-placeholder" title={t.agents.avatarUnavailable}>
+          👤
+        </span>
+      ) : null}
       {agent.displayName ?? <span className="status">{t.agents.unnamed}</span>}
     </td>
   );

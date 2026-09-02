@@ -121,6 +121,7 @@ export const zh: Messages = {
     colAuthorizedBy: "授权方",
     colStatus: "状态",
     unnamed: "未命名",
+    avatarUnavailable: "头像不可用：该 relay 的媒体服务器还不允许浏览器跨域加载图片（服务器端 CORS 配置缺失，重试无效）。",
     noChannels: "(无)",
     notSeen: "未见",
     presenceHint: "在 relay 180 秒窗口内未观测到在线状态",

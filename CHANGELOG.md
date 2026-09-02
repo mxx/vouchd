@@ -36,6 +36,17 @@ bullet list in `README.md` and that list only ever grew stale.
   never callable. Fixed with `setSigner(() => signer)`; regression-tested in
   `tests/app/useCommunityConnection.test.tsx`.
 
+- Known limitation, surfaced rather than left silent: with the crash above
+  fixed, the authorized picture request actually reaches buzz.fudu.space's
+  media host and still can't load one -- its CORS preflight answers 200 but
+  never sends back `Access-Control-Allow-Origin`, so the browser refuses
+  the real GET before this app's code sees a response. That's this relay's
+  media server, not vouchd; nothing client-side can route around a browser
+  CORS refusal. `useAuthorizedImage` now reports this as its own `failed`
+  state (distinct from "no picture" / "no signer yet"), and the members
+  table shows a placeholder with a tooltip explaining it, instead of just
+  quietly showing nothing the way an actual absence of a picture does.
+
 - Added a Channels panel that lists every channel this app has observed a create-
   channel event for (name, visibility, type, about) -- a plain listing, distinct
   from actually creating one or adding a member to one. Reachable from a new
