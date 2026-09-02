@@ -44,6 +44,7 @@ export interface Messages {
     agents: string;
     createChannel: string;
     membership: string;
+    channelList: string;
     languageLabel: string;
   };
   community: {
@@ -110,6 +111,16 @@ export interface Messages {
     roleLabel: string;
     submit: string;
     done: string;
+  };
+  channels: {
+    emptyTitle: string;
+    empty: string;
+    title: (count: number) => string;
+    colName: string;
+    colVisibility: string;
+    colType: string;
+    colAbout: string;
+    unset: string;
   };
   agents: {
     emptyTitle: string;

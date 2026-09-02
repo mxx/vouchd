@@ -26,6 +26,7 @@ describe("App mounts", () => {
       "Community",
       "Owner key",
       "Authorize a member",
+      "Channels",
       "Create a channel",
       "Add to a channel",
       "Members",
@@ -53,6 +54,10 @@ describe("App mounts", () => {
 
   it("shows the empty-directory copy before any agent is observed", () => {
     render(<App />);
-    expect(screen.getByText(/None observed yet/)).toBeDefined();
+    // Both the members and channels panels start their empty copy with
+    // "None observed yet." -- matching only that would find two elements,
+    // so this asserts on the rest of the sentence, which is unique to
+    // members.
+    expect(screen.getByText(/owner attestation/)).toBeDefined();
   });
 });

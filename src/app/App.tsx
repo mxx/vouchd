@@ -25,6 +25,7 @@ import { AgentsPanel } from "../features/agents/AgentsPanel";
 import { OwnerKeyPanel } from "../features/agents/OwnerKeyPanel";
 import { RegisterAgentPanel } from "../features/agents/RegisterAgentPanel";
 import { AuditPanel } from "../features/audit/AuditPanel";
+import { ChannelsPanel } from "../features/channels/ChannelsPanel";
 import { CommunityPanel } from "../features/communities/CommunityPanel";
 import { CreateChannelPanel } from "../features/membership/CreateChannelPanel";
 import { MembershipPanel } from "../features/membership/MembershipPanel";
@@ -32,7 +33,35 @@ import { PassphrasePrompt } from "../shared/ui/PassphrasePrompt";
 import { LanguageSelect } from "../shared/ui/LanguageSelect";
 import { Sidebar } from "../shared/ui/Sidebar";
 import { StatBar } from "../shared/ui/StatBar";
+import type { EventTemplate } from "../protocol/events/types";
+import type { ChannelRecord } from "../readmodel/records";
 import { useVouchdApp } from "./useVouchdApp";
+
+/**
+ * The three channel-related panels, grouped under one name so AppShell's
+ * render stays one call per concern instead of growing a line per panel --
+ * this cluster (list, create, add-member) is the "Channels" nav group, so
+ * it reads as one idea in App.tsx too.
+ */
+function ChannelPanels({
+  channels,
+  canPublish,
+  onCreate,
+  onAddMember,
+}: {
+  channels: ChannelRecord[];
+  canPublish: boolean;
+  onCreate: (template: EventTemplate) => Promise<void>;
+  onAddMember: (template: EventTemplate) => Promise<void>;
+}) {
+  return (
+    <>
+      <ChannelsPanel channels={channels} />
+      <CreateChannelPanel canPublish={canPublish} onCreate={onCreate} />
+      <MembershipPanel canPublish={canPublish} channels={channels} onAddMember={onAddMember} />
+    </>
+  );
+}
 
 /**
  * `<LanguageProvider>` lives here, wrapping everything else, rather than
@@ -85,8 +114,7 @@ function AppShell() {
           requestPassphrase={passphrasePrompt.requestPassphrase}
         />
         <AuditPanel agentPubkey={focusedAgent} entries={auditEntries} profiles={profiles} />
-        <CreateChannelPanel canPublish={canPublish} onCreate={publish} />
-        <MembershipPanel canPublish={canPublish} channels={channels} onAddMember={publish} />
+        <ChannelPanels canPublish={canPublish} channels={channels} onAddMember={publish} onCreate={publish} />
         <AgentsPanel onReauthorize={setFocusedAgent} profiles={profiles} rows={rows} />
       </div>
     </div>

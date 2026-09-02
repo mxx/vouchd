@@ -10,6 +10,17 @@ bullet list in `README.md` and that list only ever grew stale.
 
 ### Added
 
+- Added a Channels panel that lists every channel this app has observed a create-
+  channel event for (name, visibility, type, about) -- a plain listing, distinct
+  from actually creating one or adding a member to one. Reachable from a new
+  "Channel list" link in the sidebar's Channels group.
+
+- Fixed: the sidebar's "Agents" group heading and its "Members" link read as two
+  different destinations in English (a leftover from renaming the panel but not
+  its nav wrapper). The group is now "Members" and the link is "Member list". Also
+  fixed a broken profile picture leaving the browser's broken-image glyph in the
+  members table -- it's now hidden on load failure instead.
+
 - The agents directory is now labeled "Members" (nav link and panel title; the
   underlying AgentRecord/NIP-OA concept is unchanged, this is display wording only
   -- it isn't a rename, and it isn't MemberRecord, which is channel membership).

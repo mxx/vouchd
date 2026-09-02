@@ -56,6 +56,7 @@ export function Sidebar({ nip07 }: { nip07: Nip07State }) {
 
         <div className="nav-group">
           <p className="nav-group-label">{t.nav.groupChannels}</p>
+          <a className="nav-link" href="#channels"><IconChannels /> {t.nav.channelList}</a>
           <a className="nav-link" href="#create-channel"><IconChannels /> {t.nav.createChannel}</a>
           <a className="nav-link" href="#membership"><IconChannels /> {t.nav.membership}</a>
         </div>

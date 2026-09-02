@@ -19,7 +19,7 @@ export const zh: Messages = {
   },
   nav: {
     groupIdentity: "身份",
-    groupAgents: "Agent",
+    groupAgents: "成员",
     groupChannels: "频道",
     community: "社区",
     ownerKey: "Owner 密钥",
@@ -27,6 +27,7 @@ export const zh: Messages = {
     agents: "成员列表",
     createChannel: "创建频道",
     membership: "加入频道",
+    channelList: "频道列表",
     languageLabel: "语言",
   },
   community: {
@@ -100,6 +101,16 @@ export const zh: Messages = {
     roleLabel: "角色",
     submit: "加入频道",
     done: "Relay 已接受此成员变更事件。",
+  },
+  channels: {
+    emptyTitle: "频道",
+    empty: "尚未发现任何频道。一旦有人发布创建频道事件,就会出现在这里。",
+    title: (count) => `频道(${count})`,
+    colName: "名称",
+    colVisibility: "可见性",
+    colType: "类型",
+    colAbout: "简介",
+    unset: "—",
   },
   agents: {
     emptyTitle: "成员",

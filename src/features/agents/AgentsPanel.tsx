@@ -37,7 +37,17 @@ function NameCell({ agent }: { agent: AgentRecord }) {
   return (
     <td title={agent.pubkey}>
       {agent.picture ? (
-        <img alt="" className="avatar" src={agent.picture} />
+        // A profile's `picture` is an untrusted URL from relay content, not
+        // a guarantee -- hide it on load failure rather than showing the
+        // browser's broken-image glyph in the middle of the table.
+        <img
+          alt=""
+          className="avatar"
+          onError={(event) => {
+            event.currentTarget.style.display = "none";
+          }}
+          src={agent.picture}
+        />
       ) : null}
       {agent.displayName ?? <span className="status">{t.agents.unnamed}</span>}
     </td>
