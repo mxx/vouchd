@@ -9,6 +9,7 @@
  */
 
 import type { AuditRecord } from "../../readmodel/records";
+import { useT } from "../../i18n";
 import { Panel } from "../../shared/ui/Panel";
 
 function shortKey(pubkey: string): string {
@@ -16,6 +17,7 @@ function shortKey(pubkey: string): string {
 }
 
 function AuditRowView({ entry }: { entry: AuditRecord }) {
+  const t = useT();
   return (
     <tr>
       <td>{new Date(entry.observedAt * 1000).toLocaleString()}</td>
@@ -23,23 +25,25 @@ function AuditRowView({ entry }: { entry: AuditRecord }) {
       <td className="mono" title={entry.ownerPubkey}>
         {shortKey(entry.ownerPubkey)}
       </td>
-      <td className="mono">{entry.conditions || "(none)"}</td>
+      <td className="mono">{entry.conditions || t.audit.none}</td>
     </tr>
   );
 }
 
 function AuditTable({ entries }: { entries: AuditRecord[] }) {
+  const t = useT();
   if (entries.length === 0) {
-    return <p className="hint">No recorded authorization actions yet for this agent on this relay.</p>;
+    return <p className="hint">{t.audit.empty}</p>;
   }
   return (
+    <div className="table-scroll">
     <table>
       <thead>
         <tr>
-          <th>When</th>
-          <th>Action</th>
-          <th>Authorized by</th>
-          <th>Conditions</th>
+          <th>{t.audit.colWhen}</th>
+          <th>{t.audit.colAction}</th>
+          <th>{t.audit.colAuthorizedBy}</th>
+          <th>{t.audit.colConditions}</th>
         </tr>
       </thead>
       <tbody>
@@ -48,6 +52,7 @@ function AuditTable({ entries }: { entries: AuditRecord[] }) {
         ))}
       </tbody>
     </table>
+    </div>
   );
 }
 
@@ -58,9 +63,10 @@ export function AuditPanel({
   agentPubkey?: string;
   entries: AuditRecord[];
 }) {
+  const t = useT();
   if (!agentPubkey) return null;
   return (
-    <Panel title={`Audit trail: ${shortKey(agentPubkey)}`}>
+    <Panel title={t.audit.title(shortKey(agentPubkey))}>
       <AuditTable entries={entries} />
     </Panel>
   );

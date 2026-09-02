@@ -17,6 +17,7 @@ import { useState } from "react";
 import { buildAddMember } from "../../protocol/events/membership";
 import type { MemberRole } from "../../protocol/events/types";
 import type { ChannelRecord } from "../../readmodel/records";
+import { useT } from "../../i18n";
 import { Field } from "../../shared/ui/Field";
 import { ErrorText, Panel } from "../../shared/ui/Panel";
 
@@ -31,12 +32,13 @@ function ChannelSelect({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const t = useT();
   return (
     <>
-      <label htmlFor="channel">Channel</label>
+      <label htmlFor="channel">{t.membership.channelLabel}</label>
       <select id="channel" onChange={(event) => onChange(event.target.value)} value={value}>
         <option value="">
-          {channels.length === 0 ? "no channels observed yet" : "choose a channel"}
+          {channels.length === 0 ? t.membership.noChannelsOption : t.membership.chooseChannelOption}
         </option>
         {channels.map((channel) => (
           <option key={channel.channelId} value={channel.channelId}>
@@ -49,9 +51,10 @@ function ChannelSelect({
 }
 
 function RoleSelect({ value, onChange }: { value: MemberRole; onChange: (r: MemberRole) => void }) {
+  const t = useT();
   return (
     <>
-      <label htmlFor="role">Role</label>
+      <label htmlFor="role">{t.membership.roleLabel}</label>
       <select id="role" onChange={(event) => onChange(event.target.value as MemberRole)} value={value}>
         {ROLES.map((option) => (
           <option key={option} value={option}>
@@ -72,6 +75,7 @@ export function MembershipPanel({
   canPublish: boolean;
   onAddMember: (template: ReturnType<typeof buildAddMember>) => Promise<void>;
 }) {
+  const t = useT();
   const [channelId, setChannelId] = useState("");
   const [pubkey, setPubkey] = useState("");
   const [role, setRole] = useState<MemberRole>("bot");
@@ -91,20 +95,15 @@ export function MembershipPanel({
   }
 
   return (
-    <Panel title="Add to a channel">
-      {!canPublish ? (
-        <p className="hint caveat">
-          Connect a NIP-07 extension to publish. Attestations don&apos;t need one; membership
-          changes are signed as you.
-        </p>
-      ) : null}
+    <Panel id="membership" title={t.membership.title}>
+      {!canPublish ? <p className="hint caveat">{t.membership.noExtensionCaveat}</p> : null}
       <ChannelSelect channels={channels} onChange={setChannelId} value={channelId} />
-      <Field id="member-pubkey" label="Pubkey to add" mono onChange={setPubkey} value={pubkey} />
+      <Field id="member-pubkey" label={t.membership.pubkeyLabel} mono onChange={setPubkey} value={pubkey} />
       <RoleSelect onChange={setRole} value={role} />
       <button disabled={!canPublish || !channelId || !pubkey.trim()} onClick={() => void add()}>
-        Add to channel
+        {t.membership.submit}
       </button>
-      {done ? <p className="hint">Relay accepted the membership event.</p> : null}
+      {done ? <p className="hint">{t.membership.done}</p> : null}
       <ErrorText error={error} />
     </Panel>
   );

@@ -19,12 +19,15 @@ import {
   type OwnerPassphrasePrompt,
   useOwnerPassphrasePrompt,
 } from "./useOwnerPassphrasePrompt";
+import { useOwnerPubkey } from "./useOwnerPubkey";
 import { useReadModel } from "./useReadModel";
 import type { AgentRow } from "../features/agents/AgentsPanel";
 import type { AuditRecord, ChannelRecord } from "../readmodel/records";
 
 export interface VouchdAppState {
   keystore: OwnerKeystore;
+  ownerPubkey: string | null;
+  refreshOwnerPubkey: () => void;
   connection: CommunityConnection;
   /** The pending owner-passphrase prompt (if any) for App to render. */
   passphrasePrompt: OwnerPassphrasePrompt;
@@ -41,6 +44,7 @@ export interface VouchdAppState {
 export function useVouchdApp(): VouchdAppState {
   const db = useReadModel();
   const keystore = useMemo(() => new OwnerKeystore(createIndexedDbStorage()), []);
+  const { ownerPubkey, refresh: refreshOwnerPubkey } = useOwnerPubkey(keystore);
   const passphrasePrompt = useOwnerPassphrasePrompt();
   const connection = useCommunityConnection(db, keystore, passphrasePrompt.requestPassphrase);
   const rows = useAgentRows(db, connection.session);
@@ -59,6 +63,8 @@ export function useVouchdApp(): VouchdAppState {
 
   return {
     keystore,
+    ownerPubkey,
+    refreshOwnerPubkey,
     connection,
     passphrasePrompt,
     rows,

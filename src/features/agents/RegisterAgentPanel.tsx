@@ -32,7 +32,7 @@
 import { useEffect, useState } from "react";
 import { buildAuditEntry, type AuditAction } from "../../protocol/events/audit";
 import type { EventTemplate } from "../../protocol/events/types";
-import { EXPIRY_CAVEAT, describeConditions } from "./conditionsBuilder";
+import { describeConditions } from "./conditionsBuilder";
 import {
   registerAgent,
   type RegisterAgentRequest,
@@ -40,6 +40,8 @@ import {
 } from "./registerAgent";
 import type { OwnerKeystore } from "../../signer/ownerKeystore";
 import type { PassphraseProvider } from "../../signer/passphraseProvider";
+import { useT } from "../../i18n";
+import type { Messages } from "../../i18n/messages";
 import { Field } from "../../shared/ui/Field";
 import { normalizePubkey } from "../../protocol/events/validate";
 import { ErrorText, Panel } from "../../shared/ui/Panel";
@@ -61,6 +63,7 @@ interface MintAndRecordArgs {
   canPublish: boolean;
   onPublish?: (template: EventTemplate) => Promise<void>;
   onMinted?: (agentPubkey: string) => void;
+  reasonFor: Messages["register"]["reasonNew"];
   setResult: (result: RegisterAgentResult) => void;
   setError: (error: unknown) => void;
   setAuditStatus: (status: AuditStatus) => void;
@@ -80,6 +83,7 @@ async function mintAndRecord({
   canPublish,
   onPublish,
   onMinted,
+  reasonFor,
   setResult,
   setError,
   setAuditStatus,
@@ -87,7 +91,7 @@ async function mintAndRecord({
 }: MintAndRecordArgs): Promise<void> {
   try {
     const agentPubkey = normalizePubkey(draft.agentPubkey);
-    const reason = `sign ${prefillPubkey ? "a renewed" : "an"} attestation for ${agentPubkey.slice(0, 12)}…`;
+    const reason = reasonFor(agentPubkey.slice(0, 12));
     const passphrase = await requestPassphrase({ reason });
     const minted = await registerAgent(keystore, buildMintRequest(draft, agentPubkey, passphrase));
     setResult(minted);
@@ -146,14 +150,15 @@ async function recordAudit({
 }
 
 function AuditNote({ status, error }: { status: AuditStatus; error: unknown }) {
-  if (status === "published") return <p className="hint">Recorded on the relay&apos;s audit trail.</p>;
+  const t = useT();
+  if (status === "published") return <p className="hint">{t.register.auditPublished}</p>;
   if (status === "not-connected") {
-    return <p className="hint caveat">Not connected — this action was not recorded on the relay.</p>;
+    return <p className="hint caveat">{t.register.auditNotConnected}</p>;
   }
   if (status === "failed") {
     return (
       <>
-        <p className="hint caveat">Could not record this on the relay&apos;s audit trail:</p>
+        <p className="hint caveat">{t.register.auditFailedIntro}</p>
         <ErrorText error={error} />
       </>
     );
@@ -170,19 +175,21 @@ function IssuedCredential({
   auditStatus: AuditStatus;
   auditError: unknown;
 }) {
+  const t = useT();
   return (
     <>
       <p className="hint">
-        Give this to whoever operates that key — it goes into their signing environment (e.g.
-        <code> BUZZ_AUTH_TAG</code>), and gets attached to the events they sign.
+        {t.register.giveToPrefix}
+        <code> BUZZ_AUTH_TAG</code>
+        {t.register.giveToSuffix}
       </p>
       <pre className="result">{result.authTagJson}</pre>
       <ul className="hint">
-        {describeConditions(result.conditions).map((line) => (
+        {describeConditions(result.conditions, t.conditions).map((line) => (
           <li key={line}>{line}</li>
         ))}
       </ul>
-      <p className="hint caveat">{EXPIRY_CAVEAT}</p>
+      <p className="hint caveat">{t.conditions.expiryCaveat}</p>
       <AuditNote error={auditError} status={auditStatus} />
     </>
   );
@@ -199,26 +206,27 @@ function MintForm({
   onChange: (patch: { agentPubkey?: string; expiresInDays?: string }) => void;
   onSubmit: () => void;
 }) {
+  const t = useT();
   return (
     <>
       <Field
         id="agent-pubkey"
-        label="Member public key (hex or npub)"
+        label={t.register.pubkeyLabel}
         mono
         onChange={(value) => onChange({ agentPubkey: value })}
-        placeholder="the key its operator generated — never its secret"
+        placeholder={t.register.pubkeyPlaceholder}
         value={agentPubkey}
       />
       <Field
         id="expires"
-        label="Valid for (days, 0 for no expiry)"
+        label={t.register.expiresLabel}
         min="0"
         onChange={(value) => onChange({ expiresInDays: value })}
         type="number"
         value={expiresInDays}
       />
       <button disabled={!agentPubkey.trim()} onClick={onSubmit}>
-        Sign attestation
+        {t.register.submit}
       </button>
     </>
   );
@@ -256,6 +264,7 @@ export function RegisterAgentPanel({
   /** Called after a successful mint, so the app can bring that member's audit trail into view. */
   onMinted?: (agentPubkey: string) => void;
 }) {
+  const t = useT();
   const [draft, setDraft] = useState<MintDraft>(EMPTY_DRAFT);
 
   useEffect(() => {
@@ -279,6 +288,7 @@ export function RegisterAgentPanel({
       onMinted,
       onPublish,
       prefillPubkey,
+      reasonFor: prefillPubkey ? t.register.reasonRenew : t.register.reasonNew,
       requestPassphrase,
       setAuditError,
       setAuditStatus,
@@ -288,7 +298,7 @@ export function RegisterAgentPanel({
   }
 
   return (
-    <Panel title="Authorize a member">
+    <Panel id="register" title={t.register.title}>
       <MintForm
         {...draft}
         onChange={(patch) => setDraft({ ...draft, ...patch })}

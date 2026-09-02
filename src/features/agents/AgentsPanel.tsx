@@ -10,6 +10,7 @@
 
 import type { AgentRecord } from "../../readmodel/records";
 import type { EffectivePresence } from "../../readmodel/presence";
+import { useT } from "../../i18n";
 import { Panel } from "../../shared/ui/Panel";
 
 export interface AgentRow {
@@ -22,9 +23,10 @@ function shortKey(pubkey: string): string {
 }
 
 function PresenceCell({ presence }: { presence: EffectivePresence }) {
-  const label = presence === "unknown" ? "not seen" : presence;
+  const t = useT();
+  const label = presence === "unknown" ? t.agents.notSeen : presence;
   return (
-    <span title={presence === "unknown" ? "no presence within the relay's 180s window" : label}>
+    <span title={presence === "unknown" ? t.agents.presenceHint : label}>
       <span className={`dot ${presence}`} />
       {label}
     </span>
@@ -38,17 +40,18 @@ function AgentRowView({
   row: AgentRow;
   onReauthorize?: (pubkey: string) => void;
 }) {
+  const t = useT();
   const { agent, presence } = row;
   return (
     <tr>
-      <td>{agent.displayName ?? <span className="status">unnamed</span>}</td>
+      <td>{agent.displayName ?? <span className="status">{t.agents.unnamed}</span>}</td>
       <td className="mono" title={agent.pubkey}>{shortKey(agent.pubkey)}</td>
       <td className="mono" title={agent.ownerPubkey}>{shortKey(agent.ownerPubkey)}</td>
       <td><PresenceCell presence={presence} /></td>
       <td>
         {onReauthorize ? (
           <button className="secondary" onClick={() => onReauthorize(agent.pubkey)}>
-            Re-authorize
+            {t.agents.reauthorize}
           </button>
         ) : null}
       </td>
@@ -57,12 +60,10 @@ function AgentRowView({
 }
 
 function EmptyDirectory() {
+  const t = useT();
   return (
-    <Panel title="Agents">
-      <p className="hint">
-        None observed yet. Agents appear here once they publish a profile carrying a valid
-        owner attestation.
-      </p>
+    <Panel id="agents" title={t.agents.emptyTitle}>
+      <p className="hint">{t.agents.empty}</p>
     </Panel>
   );
 }
@@ -74,17 +75,19 @@ export function AgentsPanel({
   rows: AgentRow[];
   onReauthorize?: (pubkey: string) => void;
 }) {
+  const t = useT();
   if (rows.length === 0) return <EmptyDirectory />;
 
   return (
-    <Panel title={`Agents (${rows.length})`}>
+    <Panel id="agents" title={t.agents.title(rows.length)}>
+      <div className="table-scroll">
       <table>
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Agent</th>
-            <th>Authorized by</th>
-            <th>Status</th>
+            <th>{t.agents.colName}</th>
+            <th>{t.agents.colAgent}</th>
+            <th>{t.agents.colAuthorizedBy}</th>
+            <th>{t.agents.colStatus}</th>
             <th />
           </tr>
         </thead>
@@ -94,6 +97,7 @@ export function AgentsPanel({
           ))}
         </tbody>
       </table>
+      </div>
     </Panel>
   );
 }

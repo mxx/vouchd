@@ -10,9 +10,18 @@
  * kill switch. `describeConditions` says so out loud, because a UI that
  * renders "expires in 90 days" without that caveat is teaching the operator
  * something false about what they just signed.
+ *
+ * `describeConditions` takes the caller's `conditions` dictionary
+ * (`Messages["conditions"]`, src/i18n/messages.ts) rather than owning
+ * English copy itself: this module is protocol logic, not UI, and the
+ * words it produces have to change with the app's chosen language. Passing
+ * the dictionary in — rather than this module importing one language's
+ * strings — keeps that direction honest: i18n depends on protocol logic,
+ * protocol logic never depends on i18n.
  */
 
 import { parseConditions } from "../../protocol/conditions";
+import type { Messages } from "../../i18n/messages";
 
 export interface ConditionsDraft {
   /** Restrict the attestation to a single event kind. */
@@ -40,29 +49,21 @@ export function buildConditions(draft: ConditionsDraft): string {
   return clauses.join("&");
 }
 
-/** Human-readable lines for a confirmation screen. Throws if the string is malformed. */
-export function describeConditions(conditions: string): string[] {
+/**
+ * Human-readable lines for a confirmation screen, in whichever language
+ * `messages` was drawn from. Throws if the string is malformed.
+ */
+export function describeConditions(conditions: string, messages: Messages["conditions"]): string[] {
   const clauses = parseConditions(conditions);
-  if (clauses.length === 0) {
-    return ["No restrictions: valid for any event, with no expiry."];
-  }
+  if (clauses.length === 0) return [messages.none];
   return clauses.map((clause) => {
     switch (clause.type) {
       case "kind":
-        return `Only events of kind ${clause.value}.`;
+        return messages.onlyKind(clause.value);
       case "created_at_lt":
-        return `Only events dated before ${new Date(clause.value * 1000).toISOString()}.`;
+        return messages.onlyBefore(new Date(clause.value * 1000).toISOString());
       case "created_at_gt":
-        return `Only events dated after ${new Date(clause.value * 1000).toISOString()}.`;
+        return messages.onlyAfter(new Date(clause.value * 1000).toISOString());
     }
   });
 }
-
-/**
- * The caveat that belongs next to any expiry a UI displays. Kept here so it
- * can't drift out of sync with the clause that made it necessary.
- */
-export const EXPIRY_CAVEAT =
-  "Expiry constrains the timestamp an agent puts on its own events, so it binds " +
-  "well-behaved verifiers, not a compromised agent. There is no revocation in " +
-  "NIP-OA: to withdraw trust sooner, issue short windows and stop renewing them.";

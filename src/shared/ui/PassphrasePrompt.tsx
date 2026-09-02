@@ -9,8 +9,10 @@
 
 import { useState } from "react";
 import type { PendingPassphraseRequest } from "../../app/useOwnerPassphrasePrompt";
+import { useT } from "../../i18n";
 
 export function PassphrasePrompt({ request }: { request: PendingPassphraseRequest }) {
+  const t = useT();
   const [passphrase, setPassphrase] = useState("");
 
   function submit() {
@@ -21,9 +23,9 @@ export function PassphrasePrompt({ request }: { request: PendingPassphraseReques
   return (
     <div className="modal-overlay">
       <div className="modal panel">
-        <h2>Owner passphrase</h2>
+        <h2>{t.passphrasePrompt.title}</h2>
         <p className="hint">{request.reason}</p>
-        <label htmlFor="owner-passphrase-prompt">Passphrase</label>
+        <label htmlFor="owner-passphrase-prompt">{t.passphrasePrompt.label}</label>
         <input
           autoFocus
           id="owner-passphrase-prompt"
@@ -34,10 +36,10 @@ export function PassphrasePrompt({ request }: { request: PendingPassphraseReques
         />
         <div className="row">
           <button disabled={!passphrase} onClick={submit}>
-            Unlock
+            {t.passphrasePrompt.unlock}
           </button>
           <button className="secondary" onClick={() => request.cancel()}>
-            Cancel
+            {t.passphrasePrompt.cancel}
           </button>
         </div>
       </div>

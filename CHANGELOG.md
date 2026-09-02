@@ -10,6 +10,37 @@ bullet list in `README.md` and that list only ever grew stale.
 
 ### Added
 
+- The UI was reskinned to "Terminal Grid": a dark, monospace-forward console
+  theme (hairline grid background, mint/cyan accents, corner-bracketed panels)
+  in place of the old auto light/dark muted-green theme, plus a sidebar app
+  shell (brand, jump links to every panel grouped by what they're actually for,
+  the NIP-07 identity chip, a live stat bar of online/total agents, relay
+  status and owner-key status). The sidebar's nav is anchor links into the
+  same one-page layout, not a router -- every panel still renders together,
+  same as before; a tab that hid the others would be fake affordance for a
+  thing this app doesn't do.
+- The shell is responsive down to phone widths: the sidebar collapses from a
+  sticky full-height rail into a horizontal block above the content, the stat
+  bar drops from four columns to two, and both scrolling tables (agents,
+  audit trail) sit in their own horizontal-scroll container instead of
+  squeezing the page.
+- The app now speaks English or Simplified Chinese, switchable from a
+  dropdown next to the page title and persisted in localStorage (no
+  browser-language auto-detect -- see `src/i18n/LanguageContext.tsx` for why).
+  A dropdown rather than a button per language, on purpose: `LANGUAGES`
+  (`src/i18n/messages.ts`) is meant to grow past two, and each language's own
+  name is shown in its own script via `LANGUAGE_LABELS`, not translated into
+  whichever language is currently active. Every panel's UI copy moved into
+  a `Messages` dictionary (`src/i18n/messages.ts`) that TypeScript checks both
+  languages against, so a missing or mis-shaped translation fails `tsc -b`
+  rather than rendering blank. Thrown `Error` messages from the protocol/signer
+  layers are out of scope for this pass and remain English-only -- translating
+  those needs error codes, not string translation, and is separate work.
+- `conditionsBuilder.ts`'s `describeConditions` now takes the caller's
+  `conditions` messages instead of owning English copy itself, keeping protocol
+  logic (this module) from depending on i18n (the app layer) in the wrong
+  direction.
+
 - `OwnerKeystore`'s at-rest format is now NIP-49 (`ncryptsec1...`) instead of
   a bespoke PBKDF2+AES-GCM scheme -- a real Nostr standard other clients
   already export/import, so pasting an already-encrypted key now stores it

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { verifyAuthTag } from "@/protocol/nipOA";
 import { createMemoryStorage, OwnerKeystore } from "@/signer/ownerKeystore";
 import { buildConditions, describeConditions } from "@/features/agents/conditionsBuilder";
+import { en } from "@/i18n/en";
 import { registerAgent } from "@/features/agents/registerAgent";
 
 const OWNER_SECRET = "0000000000000000000000000000000000000000000000000000000000000001";
@@ -32,14 +33,14 @@ describe("buildConditions", () => {
 
 describe("describeConditions", () => {
   it("renders each clause in words", () => {
-    expect(describeConditions("kind=1&created_at<1798761600")).toEqual([
+    expect(describeConditions("kind=1&created_at<1798761600", en.conditions)).toEqual([
       "Only events of kind 1.",
       "Only events dated before 2027-01-01T00:00:00.000Z.",
     ]);
   });
 
   it("says plainly when a grant is unrestricted", () => {
-    expect(describeConditions("")[0]).toMatch(/No restrictions/);
+    expect(describeConditions("", en.conditions)[0]).toMatch(/No restrictions/);
   });
 });
 

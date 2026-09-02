@@ -15,6 +15,7 @@
 import { useState } from "react";
 import type { ConnectionStatus } from "../../protocol/relayClient";
 import type { IdentitySource } from "../../app/useCommunityConnection";
+import { useT } from "../../i18n";
 import { ErrorText, Panel } from "../../shared/ui/Panel";
 
 const STORAGE_KEY = "vouchd.relayUrl";
@@ -45,17 +46,18 @@ function IdentityChoice({
   onChange: (next: IdentitySource) => void;
   disabled: boolean;
 }) {
+  const t = useT();
   return (
     <div>
-      <label htmlFor="identity-source">Sign in as</label>
+      <label htmlFor="identity-source">{t.community.signInAsLabel}</label>
       <select
         disabled={disabled}
         id="identity-source"
         onChange={(event) => onChange(event.target.value as IdentitySource)}
         value={value}
       >
-        <option value="nip07">Browser extension (NIP-07)</option>
-        <option value="ownerKey">Owner key (asks for its passphrase to sign)</option>
+        <option value="nip07">{t.community.nip07Option}</option>
+        <option value="ownerKey">{t.community.ownerKeyOption}</option>
       </select>
     </div>
   );
@@ -75,6 +77,7 @@ export function CommunityPanel({
   onConnect: (relayUrl: string, identitySource: IdentitySource) => void;
   onDisconnect: () => void;
 }) {
+  const t = useT();
   const [relayUrl, setRelayUrl] = useState(loadRelayUrl());
   const [identitySource, setIdentitySource] = useState<IdentitySource>("nip07");
   const connected = status === "open" || status === "authenticated";
@@ -85,26 +88,26 @@ export function CommunityPanel({
   }
 
   return (
-    <Panel title="Community">
+    <Panel id="community" title={t.community.title}>
       <div className="row">
         <div>
-          <label htmlFor="relay-url">Relay URL</label>
+          <label htmlFor="relay-url">{t.community.relayUrlLabel}</label>
           <input
             className="mono"
             disabled={connected}
             id="relay-url"
             onChange={(event) => setRelayUrl(event.target.value)}
-            placeholder="wss://relay.example"
+            placeholder={t.community.relayUrlPlaceholder}
             value={relayUrl}
           />
         </div>
         <IdentityChoice disabled={connected} onChange={setIdentitySource} value={identitySource} />
         <button onClick={connected ? onDisconnect : connect} disabled={!relayUrl.trim()}>
-          {connected ? "Disconnect" : "Connect"}
+          {connected ? t.community.disconnect : t.community.connect}
         </button>
       </div>
-      <p className="status">Status: {status}</p>
-      {notice ? <p className="hint">Relay says: {notice}</p> : null}
+      <p className="status">{t.community.status(status)}</p>
+      {notice ? <p className="hint">{t.community.relaySays(notice)}</p> : null}
       <ErrorText error={error} />
     </Panel>
   );

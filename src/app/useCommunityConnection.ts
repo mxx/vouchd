@@ -16,6 +16,7 @@
  */
 
 import { useState } from "react";
+import { useT } from "../i18n";
 import type { ConnectionStatus } from "../protocol/relayClient";
 import type { ReadModelDb } from "../readmodel/db";
 import { hasNip07, signEventWithNip07, type SignEvent } from "../signer/nip07Signer";
@@ -53,9 +54,10 @@ function buildSigner(
   identitySource: IdentitySource,
   keystore: OwnerKeystore,
   requestPassphrase: PassphraseProvider,
+  authReason: string,
 ): SignEvent | undefined {
   if (identitySource === "nip07") return hasNip07() ? signEventWithNip07 : undefined;
-  return ownerKeystoreSigner(keystore, requestPassphrase, "sign in to the community relay");
+  return ownerKeystoreSigner(keystore, requestPassphrase, authReason);
 }
 
 export function useCommunityConnection(
@@ -68,12 +70,13 @@ export function useCommunityConnection(
   const [error, setError] = useState<unknown>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [canPublish, setCanPublish] = useState(false);
+  const t = useT();
 
   function connect(relayUrl: string, identitySource: IdentitySource) {
     if (!db) return;
     setError(null);
     setNotice(null);
-    const signer = buildSigner(identitySource, keystore, requestPassphrase);
+    const signer = buildSigner(identitySource, keystore, requestPassphrase, t.community.authReason);
     setCanPublish(Boolean(signer));
     const next = new VouchdSession(relayUrl, {
       db,

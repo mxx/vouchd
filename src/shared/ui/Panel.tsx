@@ -1,8 +1,17 @@
 import type { ReactNode } from "react";
 
-export function Panel({ title, children }: { title: string; children: ReactNode }) {
+export function Panel({
+  id,
+  title,
+  children,
+}: {
+  /** Anchor target for the sidebar nav (Sidebar.tsx) -- omitted for panels nothing links to. */
+  id?: string;
+  title: string;
+  children: ReactNode;
+}) {
   return (
-    <section className="panel">
+    <section className="panel" id={id}>
       <h2>{title}</h2>
       {children}
     </section>

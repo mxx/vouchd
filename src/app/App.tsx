@@ -1,6 +1,13 @@
 /**
  * Composition root: assembles the panels and owns nothing else.
  *
+ * Every panel still renders on this one page, in the order it always has
+ * -- the sidebar (Sidebar.tsx) is jump links into that same page, not a
+ * router, because nothing here actually stops existing when you're not
+ * "on" its tab. See Sidebar.tsx's own header comment for why a fake tab
+ * switch would be dishonest UI for an app that documents its absences
+ * (AGENTS.md rule 1, `src/features/bridge/README.md`).
+ *
  * The owner-key panel is the only place a raw secret is ever typed; every
  * other panel that needs that key to sign something (Community's relay
  * connection, RegisterAgentPanel's minting) asks for a *passphrase*, never
@@ -13,6 +20,7 @@
  * needed the owner key to publish.
  */
 
+import { LanguageProvider, useT } from "../i18n";
 import { AgentsPanel } from "../features/agents/AgentsPanel";
 import { OwnerKeyPanel } from "../features/agents/OwnerKeyPanel";
 import { RegisterAgentPanel } from "../features/agents/RegisterAgentPanel";
@@ -21,51 +29,66 @@ import { CommunityPanel } from "../features/communities/CommunityPanel";
 import { CreateChannelPanel } from "../features/membership/CreateChannelPanel";
 import { MembershipPanel } from "../features/membership/MembershipPanel";
 import { PassphrasePrompt } from "../shared/ui/PassphrasePrompt";
+import { LanguageSelect } from "../shared/ui/LanguageSelect";
+import { Sidebar } from "../shared/ui/Sidebar";
+import { StatBar } from "../shared/ui/StatBar";
 import { useVouchdApp } from "./useVouchdApp";
 
-function IdentityLine({ pubkey, available }: { pubkey: string | null; available: boolean }) {
-  if (!available) return <p className="status">No NIP-07 extension: read-only.</p>;
-  if (!pubkey) return <p className="status">Extension found; awaiting permission.</p>;
-  return <p className="status">Signing as {pubkey.slice(0, 12)}…</p>;
+/**
+ * `<LanguageProvider>` lives here, wrapping everything else, rather than
+ * in main.tsx: it keeps `<App/>` a fully self-contained composition root
+ * that works the same way whether it's mounted by main.tsx or by a test
+ * that renders `<App/>` directly (tests/app/App.render.test.tsx) -- no
+ * caller has to remember to also wrap it in a provider.
+ */
+export function App() {
+  return (
+    <LanguageProvider>
+      <AppShell />
+    </LanguageProvider>
+  );
 }
 
-export function App() {
+function AppShell() {
   const app = useVouchdApp();
-  const { keystore, connection, passphrasePrompt, rows, channels, nip07, canPublish, publish } = app;
+  const { keystore, ownerPubkey, refreshOwnerPubkey, connection, passphrasePrompt } = app;
+  const { rows, channels, nip07, canPublish, publish } = app;
   const { focusedAgent, setFocusedAgent, auditEntries } = app;
+  const t = useT();
 
   return (
     <div className="shell">
       {passphrasePrompt.pending ? <PassphrasePrompt request={passphrasePrompt.pending} /> : null}
-      <header>
-        <h1>vouchd</h1>
-        <p>Authorize agents to speak in your community, wherever they run.</p>
-        <IdentityLine available={nip07.available} pubkey={nip07.pubkey} />
-      </header>
-      <CommunityPanel
-        error={connection.error}
-        notice={connection.notice}
-        onConnect={connection.connect}
-        onDisconnect={connection.disconnect}
-        status={connection.status}
-      />
-      <OwnerKeyPanel keystore={keystore} />
-      <RegisterAgentPanel
-        canPublish={canPublish}
-        keystore={keystore}
-        onMinted={setFocusedAgent}
-        onPublish={publish}
-        prefillPubkey={focusedAgent}
-        requestPassphrase={passphrasePrompt.requestPassphrase}
-      />
-      <AuditPanel agentPubkey={focusedAgent} entries={auditEntries} />
-      <CreateChannelPanel canPublish={canPublish} onCreate={publish} />
-      <MembershipPanel
-        canPublish={canPublish}
-        channels={channels}
-        onAddMember={publish}
-      />
-      <AgentsPanel onReauthorize={setFocusedAgent} rows={rows} />
+      <Sidebar nip07={nip07} />
+      <div className="content">
+        <header>
+          <div className="title-row">
+            <h1>{t.app.title}</h1>
+            <LanguageSelect />
+          </div>
+        </header>
+        <StatBar ownerPubkey={ownerPubkey} relayStatus={connection.status} rows={rows} />
+        <CommunityPanel
+          error={connection.error}
+          notice={connection.notice}
+          onConnect={connection.connect}
+          onDisconnect={connection.disconnect}
+          status={connection.status}
+        />
+        <OwnerKeyPanel keystore={keystore} onChanged={refreshOwnerPubkey} ownerPubkey={ownerPubkey} />
+        <RegisterAgentPanel
+          canPublish={canPublish}
+          keystore={keystore}
+          onMinted={setFocusedAgent}
+          onPublish={publish}
+          prefillPubkey={focusedAgent}
+          requestPassphrase={passphrasePrompt.requestPassphrase}
+        />
+        <AuditPanel agentPubkey={focusedAgent} entries={auditEntries} />
+        <CreateChannelPanel canPublish={canPublish} onCreate={publish} />
+        <MembershipPanel canPublish={canPublish} channels={channels} onAddMember={publish} />
+        <AgentsPanel onReauthorize={setFocusedAgent} rows={rows} />
+      </div>
     </div>
   );
 }

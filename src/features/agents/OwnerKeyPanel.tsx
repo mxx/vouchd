@@ -5,10 +5,15 @@
  * it says why out loud rather than presenting it as routine: NIP-07 cannot
  * produce a NIP-OA signature (see src/signer/nip07Signer.ts), and no
  * attestation can be minted without a key this page can reach.
+ *
+ * `ownerPubkey` is passed in (src/app/useOwnerPubkey.ts) rather than read
+ * here directly: the stat bar needs the same fact, and reading it in two
+ * places risked the two disagreeing for a render.
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { OwnerKeystore } from "../../signer/ownerKeystore";
+import { useT } from "../../i18n";
 import { Field } from "../../shared/ui/Field";
 import { ErrorText, Panel } from "../../shared/ui/Panel";
 
@@ -19,16 +24,15 @@ function StoredKeyView({
   ownerPubkey: string;
   onForget: () => void;
 }) {
+  const t = useT();
   return (
-    <Panel title="Owner key">
+    <Panel id="owner-key" title={t.ownerKey.title}>
       <p className="status">
-        Encrypted in this browser: <code>{ownerPubkey}</code>
+        {t.ownerKey.storedPrefix} <code>{ownerPubkey}</code>
       </p>
-      <p className="hint">
-        It is decrypted only for the moment an attestation is signed, then wiped.
-      </p>
+      <p className="hint">{t.ownerKey.decryptHint}</p>
       <button className="secondary" onClick={onForget}>
-        Forget this key
+        {t.ownerKey.forget}
       </button>
     </Panel>
   );
@@ -41,19 +45,15 @@ function ImportKeyForm({
   onStore: (secret: string, passphrase: string) => void;
   error: unknown;
 }) {
+  const t = useT();
   const [secret, setSecret] = useState("");
   const [passphrase, setPassphrase] = useState("");
   return (
-    <Panel title="Owner key">
-      <p className="hint caveat">
-        Attestations are raw Schnorr signatures over a non-event preimage, which a NIP-07
-        extension cannot produce. That is why this key has to live here — encrypted at rest,
-        decrypted only for the instant it signs. Pasting an already-encrypted key (ncryptsec)
-        stores it as-is; the passphrase below is only checked, not re-applied.
-      </p>
+    <Panel id="owner-key" title={t.ownerKey.title}>
+      <p className="hint caveat">{t.ownerKey.caveat}</p>
       <Field
         id="owner-secret"
-        label="Owner secret key (64 hex, nsec, or an encrypted ncryptsec)"
+        label={t.ownerKey.secretLabel}
         mono
         onChange={setSecret}
         type="password"
@@ -61,7 +61,7 @@ function ImportKeyForm({
       />
       <Field
         id="owner-pass"
-        label="Passphrase (to encrypt it with, or to unlock an ncryptsec paste)"
+        label={t.ownerKey.passphraseLabel}
         onChange={setPassphrase}
         type="password"
         value={passphrase}
@@ -70,25 +70,31 @@ function ImportKeyForm({
         disabled={!secret.trim() || !passphrase}
         onClick={() => onStore(secret.trim(), passphrase)}
       >
-        Store owner key
+        {t.ownerKey.store}
       </button>
       <ErrorText error={error} />
     </Panel>
   );
 }
 
-export function OwnerKeyPanel({ keystore }: { keystore: OwnerKeystore }) {
-  const [ownerPubkey, setOwnerPubkey] = useState<string | null>(null);
+export function OwnerKeyPanel({
+  keystore,
+  ownerPubkey,
+  onChanged,
+}: {
+  keystore: OwnerKeystore;
+  /** Null when no key is stored yet -- see src/app/useOwnerPubkey.ts. */
+  ownerPubkey: string | null;
+  /** Called after a successful store() or clear(), so the parent can refresh. */
+  onChanged: () => void;
+}) {
   const [error, setError] = useState<unknown>(null);
-
-  useEffect(() => {
-    void keystore.ownerPubkey().then(setOwnerPubkey);
-  }, [keystore]);
 
   async function store(secret: string, passphrase: string) {
     setError(null);
     try {
-      setOwnerPubkey(await keystore.store(secret, passphrase));
+      await keystore.store(secret, passphrase);
+      onChanged();
     } catch (caught) {
       setError(caught);
     }
@@ -96,7 +102,7 @@ export function OwnerKeyPanel({ keystore }: { keystore: OwnerKeystore }) {
 
   async function forget() {
     await keystore.clear();
-    setOwnerPubkey(null);
+    onChanged();
   }
 
   if (ownerPubkey) {
