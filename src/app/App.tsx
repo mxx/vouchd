@@ -115,7 +115,7 @@ function AppShell() {
         />
         <AuditPanel agentPubkey={focusedAgent} entries={auditEntries} profiles={profiles} />
         <ChannelPanels canPublish={canPublish} channels={channels} onAddMember={publish} onCreate={publish} />
-        <AgentsPanel nip07Available={nip07.available} onReauthorize={setFocusedAgent} profiles={profiles} rows={rows} />
+        <AgentsPanel onReauthorize={setFocusedAgent} profiles={profiles} rows={rows} sign={connection.signer} />
       </div>
     </div>
   );

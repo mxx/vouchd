@@ -15,7 +15,7 @@
 import { useAuthorizedImage } from "../../app/useAuthorizedImage";
 import type { AgentRecord, ProfileRecord } from "../../readmodel/records";
 import type { EffectivePresence } from "../../readmodel/presence";
-import { signEventWithNip07, type SignEvent } from "../../signer/nip07Signer";
+import type { SignEvent } from "../../signer/nip07Signer";
 import { useT } from "../../i18n";
 import { Panel } from "../../shared/ui/Panel";
 
@@ -107,17 +107,19 @@ function EmptyDirectory() {
 export function AgentsPanel({
   rows,
   profiles,
-  nip07Available,
+  sign,
   onReauthorize,
 }: {
   rows: AgentRow[];
   profiles: Map<string, ProfileRecord>;
-  /** Whether a picture can be fetched at all -- see NameCell. */
-  nip07Available: boolean;
+  /** The active connection's signer, if any -- the same one used for AUTH
+   *  and every publish (useCommunityConnection). No signer means no
+   *  pictures (see NameCell); which identity it is doesn't matter here,
+   *  only that it's shared with everything else that signs. */
+  sign: SignEvent | undefined;
   onReauthorize?: (pubkey: string) => void;
 }) {
   const t = useT();
-  const sign = nip07Available ? signEventWithNip07 : undefined;
   if (rows.length === 0) return <EmptyDirectory />;
 
   return (

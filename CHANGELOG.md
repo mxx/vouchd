@@ -11,14 +11,21 @@ bullet list in `README.md` and that list only ever grew stale.
 ### Added
 
 - Profile pictures in the members table now load through Blossom's BUD-11 get-
-  authorization (a signed kind:24242 event, scoped to the specific blob, sent as
-  an `Authorization: Nostr <token>` header) instead of a bare `<img src>` -- this
-  relay's media host requires it and was returning 401 without it. Only works when
-  a NIP-07 extension is present, since it signs silently; the owner key isn't used
-  here on purpose, because it would mean a passphrase prompt per picture. No
-  signer (or no picture in the profile) means no avatar shown, same as before. New
-  `protocol/blossom.ts` builds and encodes the token; `useAuthorizedImage` fetches
-  it and manages the resulting object URL's lifetime.
+  authorization (a signed kind:24242 event sent as an `Authorization: Nostr
+  <token>` header) instead of a bare `<img src>` -- this relay's media host
+  requires it and was returning 401 without it. No signer (or no picture in the
+  profile) means no avatar shown, same as before. New `protocol/blossom.ts`
+  builds and encodes the token; `useAuthorizedImage` fetches it and manages the
+  resulting object URL's lifetime.
+
+- Fixed: profile pictures never loaded at all for an owner-key (passphrase)
+  connection -- only NIP-07 was ever wired up as a signer for them, so no
+  request was even attempted, silently. The signer is now whichever one the
+  active connection actually uses (`useCommunityConnection`'s new `signer`
+  field), not NIP-07 specifically. To keep that usable for owner-key
+  connections, the BUD-11 token is now unscoped (covers every blob, not one)
+  and shared across pictures for a few minutes instead of re-signed per image
+  -- one passphrase prompt per visit instead of one per avatar.
 
 - Added a Channels panel that lists every channel this app has observed a create-
   channel event for (name, visibility, type, about) -- a plain listing, distinct

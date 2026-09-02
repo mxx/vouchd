@@ -1,13 +1,16 @@
 /**
- * BUD-11 auth-token construction: the pieces that don't need a real signer
- * or a real network call. `fetchAuthorizedBlob` itself (signs, then fetches)
- * is exercised through the app, not here -- there's no local behavior left
- * to assert on once those two delegate calls are mocked out.
+ * BUD-11 auth-token construction, plus the shared-token cache in
+ * `fetchAuthorizedBlob` (see blossom.ts's module docblock for why one
+ * unscoped token is reused across every picture rather than a fresh
+ * scoped one per blob) -- that caching is exactly the kind of branch this
+ * house's rules want a check on, so `sign` and `fetch` are mocked to
+ * assert it actually reuses, and actually stops reusing across signers.
  */
 
-import { describe, expect, it } from "vitest";
-import { blobAuthHeader, buildBlobGetAuth, sha256FromUrl } from "@/protocol/blossom";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { blobAuthHeader, buildBlobGetAuth, fetchAuthorizedBlob, sha256FromUrl } from "@/protocol/blossom";
 import type { SignedEvent } from "@/protocol/relayMessages";
+import type { SignEvent } from "@/signer/nip07Signer";
 
 const SHA256 = "4a64f32d2375ccfe44c0880416bc72b809b055f0fb7d9dddeb8bb3dd6b80c297";
 
@@ -38,6 +41,46 @@ describe("buildBlobGetAuth", () => {
       ["t", "get"],
       ["expiration", "1700000060"],
     ]);
+  });
+});
+
+function fixtureSignedEvent(overrides: Partial<SignedEvent> = {}): SignedEvent {
+  return {
+    id: "0".repeat(64),
+    pubkey: "1".repeat(64),
+    created_at: 1_700_000_000,
+    kind: 24242,
+    tags: [["t", "get"]],
+    content: "vouchd: fetch a profile picture",
+    sig: "2".repeat(128),
+    ...overrides,
+  };
+}
+
+describe("fetchAuthorizedBlob", () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, blob: async () => new Blob() }));
+    vi.stubGlobal("URL", { createObjectURL: vi.fn(() => "blob:mock") });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("signs once and reuses the shared token across multiple blobs for the same signer", async () => {
+    const sign: SignEvent = vi.fn().mockResolvedValue(fixtureSignedEvent());
+    await fetchAuthorizedBlob("https://buzz.fudu.space/media/a.png", sign);
+    await fetchAuthorizedBlob("https://buzz.fudu.space/media/b.png", sign);
+    expect(sign).toHaveBeenCalledTimes(1);
+  });
+
+  it("signs again for a different signer -- switching identity doesn't reuse the old token", async () => {
+    const signA: SignEvent = vi.fn().mockResolvedValue(fixtureSignedEvent());
+    const signB: SignEvent = vi.fn().mockResolvedValue(fixtureSignedEvent({ pubkey: "3".repeat(64) }));
+    await fetchAuthorizedBlob("https://buzz.fudu.space/media/a.png", signA);
+    await fetchAuthorizedBlob("https://buzz.fudu.space/media/b.png", signB);
+    expect(signA).toHaveBeenCalledTimes(1);
+    expect(signB).toHaveBeenCalledTimes(1);
   });
 });
 

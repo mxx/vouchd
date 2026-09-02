@@ -14,6 +14,18 @@
  * picture (AgentsPanel's name cell) is the only blob vouchd ever reads.
  * `upload`/`list`/`delete` are a different app's problem -- vouchd never
  * writes media, the same boundary profile.ts draws for kind:0 itself.
+ *
+ * One token, shared across every picture: the first version of this file
+ * minted a fresh token scoped to each blob (an `x` tag), signed once per
+ * image. Silent for NIP-07, but a passphrase prompt *per avatar* for
+ * ownerKeystoreSigner -- unusable, and the actual reason owner-key signing
+ * was left out of picture-loading at first (see AgentsPanel's git history).
+ * The fix is an unscoped token (no `x` tag, valid for every blob on this
+ * server) reused for SHARED_AUTH_TTL_SECONDS. That does cache a signed
+ * artifact across calls, which passphraseProvider.ts's signer deliberately
+ * never does -- but what's cached here is a short-lived, read-only bearer
+ * token, never the passphrase or the secret it decrypts. ownerKeystoreSigner
+ * itself still asks fresh, and still forgets, on every call.
  */
 
 import type { EventTemplate } from "./events/types";
@@ -24,6 +36,12 @@ const KIND_BLOSSOM_AUTH = 24242;
 
 /** How long a minted token is accepted -- BUD-11 requires *some* expiration, not this specific window. */
 const TOKEN_TTL_SECONDS = 60;
+
+/** How long the shared, unscoped token (see module docblock) is reused
+ *  before re-signing. Longer than TOKEN_TTL_SECONDS on purpose: one
+ *  passphrase prompt should cover a whole visit's worth of avatars, not
+ *  expire mid-render. */
+const SHARED_AUTH_TTL_SECONDS = 300;
 
 /** A BUD-11 `get` authorization, scoped to one blob when its sha256 is known. */
 export function buildBlobGetAuth(sha256: string | undefined, createdAt: number): EventTemplate {
@@ -57,16 +75,34 @@ export function blobAuthHeader(signed: SignedEvent): string {
   return `Nostr ${base64Url(JSON.stringify(signed))}`;
 }
 
+let sharedAuth: { signer: SignEvent; signed: SignedEvent; expiresAt: number } | undefined;
+
 /**
- * Signs a fresh get-auth token and fetches one blob with it, handing back
- * an object URL the caller owns (and must revoke -- see useAuthorizedImage,
- * the one caller). Undefined on any failure: a picture is decoration, never
- * worth surfacing an error banner over.
+ * One unscoped get-auth token per signer, reused until it's near expiry
+ * (module docblock has the why). Keyed by the signer's own identity, not
+ * just "is one cached": useCommunityConnection hands out a fresh
+ * `ownerKeystoreSigner` closure per connect(), so switching identity
+ * invalidates the old token for free.
+ */
+async function sharedGetAuth(sign: SignEvent): Promise<SignedEvent> {
+  const now = Math.floor(Date.now() / 1000);
+  if (sharedAuth && sharedAuth.signer === sign && sharedAuth.expiresAt > now) {
+    return sharedAuth.signed;
+  }
+  const signed = await sign(buildBlobGetAuth(undefined, now));
+  sharedAuth = { signer: sign, signed, expiresAt: now + SHARED_AUTH_TTL_SECONDS };
+  return signed;
+}
+
+/**
+ * Fetches one blob using the shared get-auth token, handing back an object
+ * URL the caller owns (and must revoke -- see useAuthorizedImage, the one
+ * caller). Undefined on any failure: a picture is decoration, never worth
+ * surfacing an error banner over.
  */
 export async function fetchAuthorizedBlob(url: string, sign: SignEvent): Promise<string | undefined> {
   try {
-    const template = buildBlobGetAuth(sha256FromUrl(url), Math.floor(Date.now() / 1000));
-    const signed = await sign(template);
+    const signed = await sharedGetAuth(sign);
     const response = await fetch(url, { headers: { Authorization: blobAuthHeader(signed) } });
     if (!response.ok) return undefined;
     return URL.createObjectURL(await response.blob());

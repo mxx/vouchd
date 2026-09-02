@@ -48,6 +48,10 @@ export interface CommunityConnection {
    * merely being non-null.
    */
   canPublish: boolean;
+  /** The signer this connection's AUTH and publishes actually use, if any
+   *  -- e.g. picture-loading (AgentsPanel) reuses it rather than assuming
+   *  NIP-07, since owner-key connections sign just as validly. */
+  signer: SignEvent | undefined;
   connect: (relayUrl: string, identitySource: IdentitySource) => void;
   disconnect: () => void;
 }
@@ -73,6 +77,7 @@ export function useCommunityConnection(
   const [error, setError] = useState<unknown>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [canPublish, setCanPublish] = useState(false);
+  const [signer, setSigner] = useState<SignEvent | undefined>(undefined);
   const t = useT();
 
   function connect(relayUrl: string, identitySource: IdentitySource) {
@@ -81,6 +86,7 @@ export function useCommunityConnection(
     setNotice(null);
     const signer = buildSigner(identitySource, keystore, requestPassphrase, t.community.authReason);
     setCanPublish(Boolean(signer));
+    setSigner(signer);
     const next = new VouchdSession(relayUrl, {
       db,
       signEvent: signer,
@@ -98,7 +104,8 @@ export function useCommunityConnection(
     setStatus("closed");
     setNotice(null);
     setCanPublish(false);
+    setSigner(undefined);
   }
 
-  return { session, status, error, notice, canPublish, connect, disconnect };
+  return { session, status, error, notice, canPublish, signer, connect, disconnect };
 }
