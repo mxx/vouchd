@@ -15,7 +15,7 @@ export const zhHant: Messages = {
     noBackend: "沒有後端伺服器,也永遠不會把私鑰交給這裡。",
   },
   identity: {
-    readOnly: "未連接 NIP-07 擴充功能:唯讀模式。",
+    readOnly: "未連接簽名擴充功能:唯讀模式。",
     awaitingPermission: "已偵測到擴充功能,等待授權。",
     signingAs: (short) => `以 ${short} 身分簽名…`,
   },

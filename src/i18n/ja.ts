@@ -13,7 +13,7 @@ export const ja: Messages = {
     noBackend: "バックエンドはありません。エージェントが秘密鍵をここに渡すこともありません。",
   },
   identity: {
-    readOnly: "NIP-07 拡張機能未接続:読み取り専用です。",
+    readOnly: "署名用の拡張機能が未接続です:読み取り専用です。",
     awaitingPermission: "拡張機能を検出しました。許可待ちです。",
     signingAs: (short) => `${short} として署名中…`,
   },

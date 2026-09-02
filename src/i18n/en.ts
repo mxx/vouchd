@@ -15,7 +15,7 @@ export const en: Messages = {
     noBackend: "No backend. No agent ever hands you its key.",
   },
   identity: {
-    readOnly: "No NIP-07 extension: read-only.",
+    readOnly: "No signing extension: read-only.",
     awaitingPermission: "Extension found; awaiting permission.",
     signingAs: (short) => `Signing as ${short}…`,
   },

@@ -37,7 +37,7 @@ describe("App mounts", () => {
 
   it("says it is read-only when no NIP-07 extension is present", () => {
     render(<App />);
-    expect(screen.getByText(/No NIP-07 extension/)).toBeDefined();
+    expect(screen.getByText(/No signing extension/)).toBeDefined();
   });
 
   it("starts disconnected with the connect button disabled until a URL is typed", () => {

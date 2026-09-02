@@ -10,6 +10,8 @@ bullet list in `README.md` and that list only ever grew stale.
 
 ### Added
 
+- Reworded the "no signer yet" sidebar chip (`identity.readOnly`) away from naming the NIP-07 protocol by number -- "No NIP-07 extension: read-only." assumed a reader already knows what NIP-07 is. Now "No signing extension: read-only." (and the equivalent in every other language) says what a reader actually needs: something has to be installed before this app can sign anything.
+
 - Added four more UI languages: Japanese, Korean, Traditional Chinese, and Spanish (`src/i18n/ja.ts`, `ko.ts`, `zh-Hant.ts`, `es.ts`), on top of English and Simplified Chinese. Each is a full `Messages` dictionary -- `tsc -b` fails if one is missing a key or gives a translated string the wrong parameter list, so completeness is a typecheck guarantee, not a manual review. The language picker (`LanguageSelect.tsx`) needed no changes: it already renders whatever `LANGUAGES` lists.
 
 - Profile pictures in the members table now load through Blossom's BUD-11 get-

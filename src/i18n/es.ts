@@ -13,7 +13,7 @@ export const es: Messages = {
     noBackend: "Sin backend. Ningún agente te entrega jamás su clave.",
   },
   identity: {
-    readOnly: "Sin extensión NIP-07: solo lectura.",
+    readOnly: "Sin extensión de firma: solo lectura.",
     awaitingPermission: "Extensión detectada; esperando permiso.",
     signingAs: (short) => `Firmando como ${short}…`,
   },

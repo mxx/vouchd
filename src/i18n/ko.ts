@@ -13,7 +13,7 @@ export const ko: Messages = {
     noBackend: "백엔드가 없습니다. 에이전트가 자신의 키를 여기에 넘기는 일도 없습니다.",
   },
   identity: {
-    readOnly: "NIP-07 확장 프로그램 없음: 읽기 전용입니다.",
+    readOnly: "서명 확장 프로그램 없음: 읽기 전용입니다.",
     awaitingPermission: "확장 프로그램을 찾았습니다. 권한을 기다리는 중입니다.",
     signingAs: (short) => `${short}(으)로 서명 중…`,
   },

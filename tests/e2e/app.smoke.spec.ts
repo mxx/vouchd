@@ -10,7 +10,7 @@ test("renders the read-only community shell", async ({ page }) => {
   await expect(page).toHaveTitle("vouchd");
   await expect(page.getByRole("heading", { name: "vouchd" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Community" })).toBeVisible();
-  await expect(page.getByText("No NIP-07 extension: read-only.")).toBeVisible();
+  await expect(page.getByText("No signing extension: read-only.")).toBeVisible();
 });
 
 test("persists the relay URL entered by the user", async ({ page }) => {

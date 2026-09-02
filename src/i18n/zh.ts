@@ -13,7 +13,7 @@ export const zh: Messages = {
     noBackend: "没有后端服务器,也永远不会把私钥交给这里。",
   },
   identity: {
-    readOnly: "未连接 NIP-07 扩展:只读模式。",
+    readOnly: "未连接签名扩展:只读模式。",
     awaitingPermission: "已检测到扩展,等待授权。",
     signingAs: (short) => `以 ${short} 身份签名…`,
   },
