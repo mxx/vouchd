@@ -86,7 +86,12 @@ export function useCommunityConnection(
     setNotice(null);
     const signer = buildSigner(identitySource, keystore, requestPassphrase, t.community.authReason);
     setCanPublish(Boolean(signer));
-    setSigner(signer);
+    // A plain `setSigner(signer)` would be wrong: signer is itself a
+    // function, and React's setState treats a function argument as an
+    // updater `(prev) => next`, not a value to store -- it would call
+    // signer(prevSigner) instead of ever storing it. Wrapping it in an
+    // arrow makes the *arrow* the updater, returning signer as the value.
+    setSigner(() => signer);
     const next = new VouchdSession(relayUrl, {
       db,
       signEvent: signer,

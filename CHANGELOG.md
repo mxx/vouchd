@@ -27,6 +27,15 @@ bullet list in `README.md` and that list only ever grew stale.
   and shared across pictures for a few minutes instead of re-signed per image
   -- one passphrase prompt per visit instead of one per avatar.
 
+- Fixed: that same `signer` field crashed every owner-key connect() with
+  `Cannot set properties of undefined (setting 'pubkey')` inside
+  `finalizeEvent` -- `setSigner(signer)` looked right, but `signer` is
+  itself a function, and React's setState treats a function argument as an
+  updater `(prev) => next` rather than a value to store. It silently called
+  `signer(undefined)` instead of ever storing it, so `connection.signer` was
+  never callable. Fixed with `setSigner(() => signer)`; regression-tested in
+  `tests/app/useCommunityConnection.test.tsx`.
+
 - Added a Channels panel that lists every channel this app has observed a create-
   channel event for (name, visibility, type, about) -- a plain listing, distinct
   from actually creating one or adding a member to one. Reachable from a new
