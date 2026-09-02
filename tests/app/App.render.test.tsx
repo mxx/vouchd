@@ -12,9 +12,10 @@
  */
 
 import "fake-indexeddb/auto";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "@/app/App";
+import { applyMutations, openReadModel } from "@/readmodel/db";
 
 afterEach(cleanup);
 
@@ -59,5 +60,49 @@ describe("App mounts", () => {
     // so this asserts on the rest of the sentence, which is unique to
     // members.
     expect(screen.getByText(/owner attestation/)).toBeDefined();
+  });
+
+  // Seeds a channel directly into the read model (rather than going through
+  // a relay event), so this has to run last: nothing resets the shared fake
+  // IndexedDB afterward, and the app's own db connection never closes mid-
+  // test, so a reset here would hang waiting for a connection that outlives
+  // the test. Every other test in this file asserts an *empty* directory,
+  // which only holds if it runs before this one.
+  it("drills into a channel's own detail via its View button, then back", async () => {
+    const channelId = "3f2504e0-4f89-41d3-9a0c-0305e82c3301";
+    const memberPubkey = "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5";
+    const db = await openReadModel();
+    await applyMutations(db, [
+      {
+        store: "channels",
+        op: "put",
+        value: {
+          channelId,
+          name: "general",
+          visibility: "open",
+          channelType: "text",
+          about: "General chat",
+          observedAt: 1_700_000_000,
+        },
+      },
+      {
+        store: "members",
+        op: "put",
+        value: { channelId, pubkey: memberPubkey, role: "bot", observedAt: 1_700_000_100 },
+      },
+    ]);
+
+    render(<App />);
+    // "general" also appears as an <option> in MembershipPanel's channel
+    // picker, so this waits on the table cell specifically.
+    await screen.findByRole("cell", { name: "general" });
+
+    fireEvent.click(screen.getByRole("button", { name: "View" }));
+    expect(await screen.findByRole("heading", { name: "Channel: general" })).toBeDefined();
+    expect(screen.getByText(channelId)).toBeDefined();
+    expect(screen.getByText("bot")).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: /Back to channels/ }));
+    expect(await screen.findByRole("heading", { name: "Channels (1)" })).toBeDefined();
   });
 });

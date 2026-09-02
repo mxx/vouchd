@@ -25,6 +25,7 @@ import { AgentsPanel } from "../features/agents/AgentsPanel";
 import { OwnerKeyPanel } from "../features/agents/OwnerKeyPanel";
 import { RegisterAgentPanel } from "../features/agents/RegisterAgentPanel";
 import { AuditPanel } from "../features/audit/AuditPanel";
+import { ChannelDetailPanel } from "../features/channels/ChannelDetailPanel";
 import { ChannelsPanel } from "../features/channels/ChannelsPanel";
 import { CommunityPanel } from "../features/communities/CommunityPanel";
 import { CreateChannelPanel } from "../features/membership/CreateChannelPanel";
@@ -33,32 +34,41 @@ import { PassphrasePrompt } from "../shared/ui/PassphrasePrompt";
 import { LanguageSelect } from "../shared/ui/LanguageSelect";
 import { Sidebar } from "../shared/ui/Sidebar";
 import { StatBar } from "../shared/ui/StatBar";
-import type { EventTemplate } from "../protocol/events/types";
-import type { ChannelRecord } from "../readmodel/records";
-import { useVouchdApp } from "./useVouchdApp";
+import { useVouchdApp, type VouchdAppState } from "./useVouchdApp";
 
 /**
  * The three channel-related panels, grouped under one name so AppShell's
  * render stays one call per concern instead of growing a line per panel --
  * this cluster (list, create, add-member) is the "Channels" nav group, so
  * it reads as one idea in App.tsx too.
+ *
+ * `focusedChannel` set swaps the *whole cluster* for ChannelDetailPanel,
+ * the one deliberate exception to this file's "every panel stays on the
+ * page" rule (see this file's own header comment). It's a narrower
+ * exception than it looks: nothing here has independent live state the way
+ * CommunityPanel's connection or a pending passphrase prompt does, so
+ * swapping list-view for detail-view over the same data is an honest
+ * master-detail toggle, not a fake tab hiding something still running.
+ * ChannelDetailPanel keeps ChannelsPanel's own `id="channels"` so the
+ * sidebar's "Channel list" link still lands somewhere either way.
  */
-function ChannelPanels({
-  channels,
-  canPublish,
-  onCreate,
-  onAddMember,
-}: {
-  channels: ChannelRecord[];
-  canPublish: boolean;
-  onCreate: (template: EventTemplate) => Promise<void>;
-  onAddMember: (template: EventTemplate) => Promise<void>;
-}) {
+function ChannelPanels({ app }: { app: VouchdAppState }) {
+  const { channels, canPublish, publish, focusedChannel, setFocusedChannel, channelMembers, profiles } = app;
+  if (focusedChannel) {
+    return (
+      <ChannelDetailPanel
+        channel={channels.find((channel) => channel.channelId === focusedChannel)}
+        members={channelMembers}
+        onBack={() => setFocusedChannel(undefined)}
+        profiles={profiles}
+      />
+    );
+  }
   return (
     <>
-      <ChannelsPanel channels={channels} />
-      <CreateChannelPanel canPublish={canPublish} onCreate={onCreate} />
-      <MembershipPanel canPublish={canPublish} channels={channels} onAddMember={onAddMember} />
+      <ChannelsPanel channels={channels} onSelectChannel={setFocusedChannel} />
+      <CreateChannelPanel canPublish={canPublish} onCreate={publish} />
+      <MembershipPanel canPublish={canPublish} channels={channels} onAddMember={publish} />
     </>
   );
 }
@@ -81,7 +91,7 @@ export function App() {
 function AppShell() {
   const app = useVouchdApp();
   const { keystore, ownerPubkey, refreshOwnerPubkey, connection, passphrasePrompt } = app;
-  const { rows, channels, nip07, canPublish, publish, focusedAgent, setFocusedAgent, auditEntries, profiles } = app;
+  const { rows, nip07, canPublish, publish, focusedAgent, setFocusedAgent, auditEntries, profiles } = app;
   const t = useT();
 
   return (
@@ -114,7 +124,7 @@ function AppShell() {
           requestPassphrase={passphrasePrompt.requestPassphrase}
         />
         <AuditPanel agentPubkey={focusedAgent} entries={auditEntries} profiles={profiles} />
-        <ChannelPanels canPublish={canPublish} channels={channels} onAddMember={publish} onCreate={publish} />
+        <ChannelPanels app={app} />
         <AgentsPanel onReauthorize={setFocusedAgent} profiles={profiles} rows={rows} sign={connection.signer} />
       </div>
     </div>

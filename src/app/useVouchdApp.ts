@@ -13,6 +13,7 @@ import type { EventTemplate } from "../protocol/events/types";
 import { type CommunityConnection, useCommunityConnection } from "./useCommunityConnection";
 import { useAgentRows } from "./useAgentRows";
 import { useAuditEntries } from "./useAuditEntries";
+import { useChannelMembers } from "./useChannelMembers";
 import { useChannels } from "./useChannels";
 import { useNip07, type Nip07State } from "./useNip07";
 import {
@@ -23,7 +24,7 @@ import { useOwnerPubkey } from "./useOwnerPubkey";
 import { useProfiles } from "./useProfiles";
 import { useReadModel } from "./useReadModel";
 import type { AgentRow } from "../features/agents/AgentsPanel";
-import type { AuditRecord, ChannelRecord, ProfileRecord } from "../readmodel/records";
+import type { AuditRecord, ChannelRecord, MemberRecord, ProfileRecord } from "../readmodel/records";
 
 export interface VouchdAppState {
   keystore: OwnerKeystore;
@@ -38,6 +39,11 @@ export interface VouchdAppState {
   focusedAgent: string | undefined;
   setFocusedAgent: (pubkey: string | undefined) => void;
   auditEntries: AuditRecord[];
+  /** The channel currently drilled into (ChannelsPanel's "View" button), if any -- App.tsx
+   *  swaps the whole Channels cluster for ChannelDetailPanel while this is set. */
+  focusedChannel: string | undefined;
+  setFocusedChannel: (channelId: string | undefined) => void;
+  channelMembers: MemberRecord[];
   profiles: Map<string, ProfileRecord>;
   canPublish: boolean;
   publish: (template: EventTemplate) => Promise<void>;
@@ -57,6 +63,8 @@ export function useVouchdApp(): VouchdAppState {
   // agent am I working with right now" is one idea, not two pieces of state.
   const [focusedAgent, setFocusedAgent] = useState<string | undefined>(undefined);
   const auditEntries = useAuditEntries(db, connection.session, focusedAgent);
+  const [focusedChannel, setFocusedChannel] = useState<string | undefined>(undefined);
+  const channelMembers = useChannelMembers(db, connection.session, focusedChannel);
   const profiles = useProfiles(db, connection.session);
 
   const publish = (template: EventTemplate) =>
@@ -76,6 +84,9 @@ export function useVouchdApp(): VouchdAppState {
     focusedAgent,
     setFocusedAgent,
     auditEntries,
+    focusedChannel,
+    setFocusedChannel,
+    channelMembers,
     profiles,
     canPublish: connection.canPublish,
     publish,

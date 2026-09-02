@@ -121,6 +121,21 @@ export interface Messages {
     colType: string;
     colAbout: string;
     unset: string;
+    view: string;
+  };
+  channelDetail: {
+    title: (name: string) => string;
+    back: string;
+    idLabel: string;
+    visibilityLabel: string;
+    typeLabel: string;
+    aboutLabel: string;
+    firstSeen: (when: string) => string;
+    membersTitle: (count: number) => string;
+    noMembers: string;
+    colMember: string;
+    colRole: string;
+    colFirstSeen: string;
   };
   agents: {
     emptyTitle: string;
