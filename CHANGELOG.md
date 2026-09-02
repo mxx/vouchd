@@ -10,6 +10,15 @@ bullet list in `README.md` and that list only ever grew stale.
 
 ### Added
 
+- The agents directory is now labeled "Members" (nav link and panel title; the
+  underlying AgentRecord/NIP-OA concept is unchanged, this is display wording only
+  -- it isn't a rename, and it isn't MemberRecord, which is channel membership).
+  Its picture (if the profile has one) now shows next to the name, hovering the
+  name shows the full pubkey in a tooltip, and the column that used to repeat that
+  pubkey now lists which channels the pubkey actually belongs to instead. The
+  status column shows a last-seen time next to anything other than "online", using
+  the most recent presence event we have even after its 180s lease has expired.
+
 - The agents directory's "authorized by" column also now resolves the owner's
   display name the same way the audit trail does (full pubkey still available on
   hover). Its "Agent" column header is renamed to "Member" -- the column itself is

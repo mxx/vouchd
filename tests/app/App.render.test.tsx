@@ -28,7 +28,7 @@ describe("App mounts", () => {
       "Authorize a member",
       "Create a channel",
       "Add to a channel",
-      "Agents",
+      "Members",
     ]) {
       expect(screen.getByRole("heading", { name: new RegExp(panel) })).toBeDefined();
     }

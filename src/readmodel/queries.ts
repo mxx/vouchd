@@ -57,3 +57,22 @@ export async function listAuditEntries(db: ReadModelDb, agentPubkey: string): Pr
 export async function listProfiles(db: ReadModelDb): Promise<ProfileRecord[]> {
   return db.getAll("profiles");
 }
+
+/**
+ * Which channels (by name) each pubkey currently belongs to -- one pass over
+ * both stores rather than a query per pubkey, since the agents directory
+ * needs this for every row on every reload.
+ */
+export async function channelNamesByPubkey(db: ReadModelDb): Promise<Map<string, string[]>> {
+  const [members, channels] = await Promise.all([db.getAll("members"), db.getAll("channels")]);
+  const nameById = new Map(channels.map((channel) => [channel.channelId, channel.name]));
+  const result = new Map<string, string[]>();
+  for (const member of members) {
+    const name = nameById.get(member.channelId);
+    if (!name) continue;
+    const names = result.get(member.pubkey) ?? [];
+    names.push(name);
+    result.set(member.pubkey, names);
+  }
+  return result;
+}

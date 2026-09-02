@@ -116,12 +116,14 @@ export interface Messages {
     empty: string;
     title: (count: number) => string;
     colName: string;
-    colMember: string;
+    colChannel: string;
     colAuthorizedBy: string;
     colStatus: string;
     unnamed: string;
+    noChannels: string;
     notSeen: string;
     presenceHint: string;
+    lastSeen: (when: string) => string;
     reauthorize: string;
   };
   audit: {

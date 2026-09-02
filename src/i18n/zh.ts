@@ -9,8 +9,8 @@ import type { Messages } from "./messages";
 export const zh: Messages = {
   app: {
     title: "vouchd",
-    tagline: "为你的社区中的 agent 授权发言——无论它们运行在哪里。",
-    noBackend: "没有后端服务器,agent 也永远不会把私钥交给这里。",
+    tagline: "为你的社区成员授权发言——无论它们运行在哪里。",
+    noBackend: "没有后端服务器,也永远不会把私钥交给这里。",
   },
   identity: {
     readOnly: "未连接 NIP-07 扩展:只读模式。",
@@ -24,7 +24,7 @@ export const zh: Messages = {
     community: "社区",
     ownerKey: "Owner 密钥",
     register: "授权成员",
-    agents: "Agent 列表",
+    agents: "成员列表",
     createChannel: "创建频道",
     membership: "加入频道",
     languageLabel: "语言",
@@ -102,16 +102,18 @@ export const zh: Messages = {
     done: "Relay 已接受此成员变更事件。",
   },
   agents: {
-    emptyTitle: "Agent",
-    empty: "尚未发现任何 agent。一旦某个 agent 发布了携带有效 owner attestation 的 profile,就会出现在这里。",
-    title: (count) => `Agent(${count})`,
+    emptyTitle: "成员",
+    empty: "尚未发现任何成员。一旦某个 pubkey 发布了携带有效 owner attestation 的 profile,就会出现在这里。",
+    title: (count) => `成员(${count})`,
     colName: "名称",
-    colMember: "成员",
+    colChannel: "频道",
     colAuthorizedBy: "授权方",
     colStatus: "状态",
     unnamed: "未命名",
+    noChannels: "(无)",
     notSeen: "未见",
     presenceHint: "在 relay 180 秒窗口内未观测到在线状态",
+    lastSeen: (when) => `最后在线:${when}`,
     reauthorize: "重新授权",
   },
   audit: {
