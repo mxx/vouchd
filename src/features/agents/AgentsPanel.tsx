@@ -12,8 +12,10 @@
  * NIP-OA concept, and it isn't MemberRecord, which is channel membership.)
  */
 
+import { useAuthorizedImage } from "../../app/useAuthorizedImage";
 import type { AgentRecord, ProfileRecord } from "../../readmodel/records";
 import type { EffectivePresence } from "../../readmodel/presence";
+import { signEventWithNip07, type SignEvent } from "../../signer/nip07Signer";
 import { useT } from "../../i18n";
 import { Panel } from "../../shared/ui/Panel";
 
@@ -32,23 +34,15 @@ function shortKey(pubkey: string): string {
   return `${pubkey.slice(0, 8)}…${pubkey.slice(-6)}`;
 }
 
-function NameCell({ agent }: { agent: AgentRecord }) {
+function NameCell({ agent, sign }: { agent: AgentRecord; sign: SignEvent | undefined }) {
   const t = useT();
+  // This relay's media host requires BUD-11 authorization on GET (see
+  // protocol/blossom.ts) -- a plain <img src={agent.picture}> just 401s.
+  // No signer means no picture, not a broken-image glyph in its place.
+  const objectUrl = useAuthorizedImage(agent.picture, sign);
   return (
     <td title={agent.pubkey}>
-      {agent.picture ? (
-        // A profile's `picture` is an untrusted URL from relay content, not
-        // a guarantee -- hide it on load failure rather than showing the
-        // browser's broken-image glyph in the middle of the table.
-        <img
-          alt=""
-          className="avatar"
-          onError={(event) => {
-            event.currentTarget.style.display = "none";
-          }}
-          src={agent.picture}
-        />
-      ) : null}
+      {objectUrl ? <img alt="" className="avatar" src={objectUrl} /> : null}
       {agent.displayName ?? <span className="status">{t.agents.unnamed}</span>}
     </td>
   );
@@ -71,10 +65,12 @@ function PresenceCell({ presence, lastSeen }: { presence: EffectivePresence; las
 function AgentRowView({
   row,
   profiles,
+  sign,
   onReauthorize,
 }: {
   row: AgentRow;
   profiles: Map<string, ProfileRecord>;
+  sign: SignEvent | undefined;
   onReauthorize?: (pubkey: string) => void;
 }) {
   const t = useT();
@@ -84,7 +80,7 @@ function AgentRowView({
   const ownerName = profiles.get(agent.ownerPubkey)?.displayName;
   return (
     <tr>
-      <NameCell agent={agent} />
+      <NameCell agent={agent} sign={sign} />
       <td className="mono">{channelNames.length > 0 ? channelNames.join(", ") : t.agents.noChannels}</td>
       <td className="mono" title={agent.ownerPubkey}>{ownerName ?? shortKey(agent.ownerPubkey)}</td>
       <td><PresenceCell lastSeen={lastSeen} presence={presence} /></td>
@@ -111,13 +107,17 @@ function EmptyDirectory() {
 export function AgentsPanel({
   rows,
   profiles,
+  nip07Available,
   onReauthorize,
 }: {
   rows: AgentRow[];
   profiles: Map<string, ProfileRecord>;
+  /** Whether a picture can be fetched at all -- see NameCell. */
+  nip07Available: boolean;
   onReauthorize?: (pubkey: string) => void;
 }) {
   const t = useT();
+  const sign = nip07Available ? signEventWithNip07 : undefined;
   if (rows.length === 0) return <EmptyDirectory />;
 
   return (
@@ -135,7 +135,7 @@ export function AgentsPanel({
         </thead>
         <tbody>
           {rows.map((row) => (
-            <AgentRowView key={row.agent.pubkey} onReauthorize={onReauthorize} profiles={profiles} row={row} />
+            <AgentRowView key={row.agent.pubkey} onReauthorize={onReauthorize} profiles={profiles} row={row} sign={sign} />
           ))}
         </tbody>
       </table>
