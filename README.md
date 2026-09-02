@@ -54,6 +54,23 @@ stale the next time a feature is added.
   attestations run out their window. The UI says so rather than implying a
   kill switch exists.
 
+## Known limitations
+
+- **Profile pictures depend on the relay's media host sending CORS headers,
+  or on a browser extension that relaxes CORS for you.** Blossom media hosts
+  (BUD-11) can require a signed `Authorization: Nostr <token>` on every image
+  fetch, and a relay that turns this on but doesn't also answer the preflight
+  with `Access-Control-Allow-Origin` leaves the browser refusing the real GET
+  before this app's code ever sees a response -- a server-side config gap,
+  not something client-side code can route around (see
+  `src/app/useAuthorizedImage.ts`'s docblock). A CORS-relaxing extension in
+  your own browser (e.g. "CORS Unblock") works around this for you locally;
+  it fixes nothing for anyone else, and isn't something vouchd ships,
+  installs, or configures on your behalf. The token itself also has to be
+  scoped the way the specific relay's media host expects -- see
+  `src/protocol/blossom.ts`'s docblock and `CHANGELOG.md` for buzz.fudu.space's
+  own (stricter-than-BUD-11-spec) requirement.
+
 ## Getting started
 
 ```bash
