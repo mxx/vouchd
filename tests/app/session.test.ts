@@ -5,7 +5,8 @@ import { computeAuthTag } from "@/protocol/nipOA";
 import type { SignedEvent } from "@/protocol/relayMessages";
 import type { WebSocketLike } from "@/protocol/relayClient";
 import type { ReadModelDb } from "@/readmodel/db";
-import { KIND_DELETE_CHANNEL, KIND_JOIN_CHANNEL } from "@/protocol/kinds";
+import { KIND_CREATE_CHANNEL, KIND_DELETE_CHANNEL, KIND_JOIN_CHANNEL } from "@/protocol/kinds";
+import type { ChannelRecord } from "@/readmodel/records";
 import { SessionError, STRUCTURAL_BACKFILL_LIMIT, VouchdSession } from "@/app/session";
 
 const OWNER_SECRET = "0000000000000000000000000000000000000000000000000000000000000001";
@@ -31,8 +32,9 @@ class FakeSocket implements WebSocketLike {
   }
 }
 
-/** Records writes instead of touching IndexedDB — applyMutations only calls put/delete. */
-function fakeDb() {
+/** Records writes instead of touching IndexedDB — applyMutations only calls
+ *  put/delete, and the EOSE reconcile only reads back `channels`. */
+function fakeDb(storedChannels: ChannelRecord[] = []) {
   const puts: { store: string; value: unknown }[] = [];
   const deletes: { store: string; key: unknown }[] = [];
   const db = {
@@ -42,8 +44,28 @@ function fakeDb() {
     delete: async (store: string, key: unknown) => {
       deletes.push({ store, key });
     },
+    getAll: async (store: string) => (store === "channels" ? storedChannels : []),
   } as unknown as ReadModelDb;
   return { db, puts, deletes };
+}
+
+function storedChannel(channelId: string): ChannelRecord {
+  return { channelId, name: channelId, observedAt: 1_700_000_000 };
+}
+
+function createChannelEvent(channelId: string): SignedEvent {
+  return finalizeEvent(
+    {
+      created_at: 1_700_000_000,
+      kind: KIND_CREATE_CHANNEL,
+      tags: [
+        ["h", channelId],
+        ["name", channelId],
+      ],
+      content: "",
+    },
+    hexToBytes(AGENT_SECRET),
+  ) as SignedEvent;
 }
 
 function attestedProfile(): SignedEvent {
@@ -77,8 +99,8 @@ function unmodeledStructuralEvent(id: string): SignedEvent {
   return { id, pubkey: "0".repeat(64), created_at: 0, kind: KIND_JOIN_CHANNEL, tags: [], content: "", sig: "0".repeat(128) };
 }
 
-async function startedSession(overrides = {}) {
-  const { db, puts, deletes } = fakeDb();
+async function startedSession(overrides = {}, storedChannels: ChannelRecord[] = []) {
+  const { db, puts, deletes } = fakeDb(storedChannels);
   const sockets: FakeSocket[] = [];
   const session = new VouchdSession("wss://relay.example", { db, ...overrides });
   // The socket factory lives on RelayClient; reach it the same way production
@@ -150,6 +172,41 @@ describe("VouchdSession", () => {
     sockets[0].emit(["EOSE", "sub0"]);
     await Promise.resolve();
     expect(onHistoryTruncated).not.toHaveBeenCalled();
+  });
+
+  it("drops a stored channel the backfill no longer serves — nobody else's deletion is ever announced", async () => {
+    const { sockets, deletes } = await startedSession({}, [storedChannel("general"), storedChannel("deleted-by-someone-else")]);
+    sockets[0].emit(["EVENT", "sub0", createChannelEvent("general")]);
+    await Promise.resolve();
+    sockets[0].emit(["EOSE", "sub0"]);
+
+    await vi.waitFor(() => expect(deletes).toEqual([{ store: "channels", key: "deleted-by-someone-else" }]));
+  });
+
+  it("keeps every stored channel when the backfill was truncated — absence proves nothing there", async () => {
+    const { sockets, deletes } = await startedSession({ onHistoryTruncated: vi.fn() }, [storedChannel("general")]);
+    for (let i = 0; i < STRUCTURAL_BACKFILL_LIMIT; i++) {
+      sockets[0].emit(["EVENT", "sub0", unmodeledStructuralEvent(i.toString(16).padStart(64, "0"))]);
+    }
+    sockets[0].emit(["EOSE", "sub0"]);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(deletes).toHaveLength(0);
+  });
+
+  it("reconciles against the first backfill only, not a reconnect's re-EOSE", async () => {
+    const { sockets, deletes } = await startedSession({}, [storedChannel("general")]);
+    sockets[0].emit(["EVENT", "sub0", createChannelEvent("general")]);
+    await Promise.resolve();
+    sockets[0].emit(["EOSE", "sub0"]);
+    await vi.waitFor(() => expect(sockets[0].sent).toHaveLength(2));
+
+    // A re-established subscription EOSEs again with no events replayed yet;
+    // reconciling there would delete every channel this session knows.
+    sockets[0].emit(["EOSE", "sub0"]);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(deletes).toHaveLength(0);
   });
 
   it("projects an attested profile into the read model and notifies listeners", async () => {

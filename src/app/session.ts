@@ -121,6 +121,17 @@ function pubkeysIn(mutations: Mutation[]): string[] {
   return pubkeys;
 }
 
+/** Channels the relay actually served, for the EOSE reconcile in `start()`. */
+function channelIdsIn(mutations: Mutation[]): string[] {
+  const channelIds: string[] = [];
+  for (const mutation of mutations) {
+    if (mutation.store === "channels" && mutation.op === "put") {
+      channelIds.push(mutation.value.channelId);
+    }
+  }
+  return channelIds;
+}
+
 export class VouchdSession {
   private readonly relay: RelayClient;
   private readonly listeners = new Set<() => void>();
@@ -145,6 +156,7 @@ export class VouchdSession {
   async start(): Promise<void> {
     await this.relay.connect();
     const knownPubkeys = new Set<string>();
+    const servedChannels = new Set<string>();
     let structuralEventCount = 0;
     let backfillDone = false;
 
@@ -155,11 +167,22 @@ export class VouchdSession {
           if (!backfillDone && STRUCTURAL_KINDS.includes(event.kind)) structuralEventCount++;
           void this.ingest(event, (mutations) => {
             for (const pubkey of pubkeysIn(mutations)) knownPubkeys.add(pubkey);
+            for (const channelId of channelIdsIn(mutations)) servedChannels.add(channelId);
           });
         },
         onEose: () => {
+          // Only the first EOSE ends a backfill. A reconnect re-establishes
+          // this subscription (relayClient does that deliberately) and EOSEs
+          // again, but against counters this closure has already filled --
+          // reconciling on that would compare the relay against a set built
+          // from two connections at once.
+          const backfillJustEnded = !backfillDone;
           backfillDone = true;
-          if (structuralEventCount >= STRUCTURAL_BACKFILL_LIMIT) this.deps.onHistoryTruncated?.();
+          if (backfillJustEnded && structuralEventCount >= STRUCTURAL_BACKFILL_LIMIT) {
+            this.deps.onHistoryTruncated?.();
+          } else if (backfillJustEnded) {
+            void this.dropChannelsMissingFromBackfill(servedChannels);
+          }
           this.startProfileSubscription(knownPubkeys);
         },
       },
@@ -182,6 +205,41 @@ export class VouchdSession {
     this.profileSubscription = this.relay.subscribe(filters, {
       onEvent: (event) => void this.ingest(event),
     });
+  }
+
+  /**
+   * Drops local channels this relay's backfill didn't serve. Absence is the
+   * only signal available: a channel someone *else* deleted is announced by
+   * buzz-relay only as a kind:40099 tagged with the channel it announces, so
+   * the same access scoping that hides the channel hides the announcement
+   * too (see `publish()`), and no event about it will ever reach us again.
+   * A local row nothing can remove is a row that outlives its channel.
+   *
+   * "Deleted" and "we lost access" are deliberately not distinguished -- both
+   * mean this relay will not serve the channel to us again, which is all a
+   * projection of what the relay serves can honestly claim. It also settles
+   * a case that predates deletion entirely: the read model is one database
+   * for every relay this browser connects to, so without this, channels from
+   * a previously-connected community stayed in the list.
+   *
+   * Caller must have ruled out a truncated backfill: a capped one is missing
+   * channels that do still exist, and this would delete every one of them.
+   *
+   * Members of a dropped channel are left alone, matching what
+   * projectChannelDeletion already decided for an explicit deletion.
+   */
+  private async dropChannelsMissingFromBackfill(servedChannels: Set<string>): Promise<void> {
+    const stale = (await this.deps.db.getAll("channels")).filter(
+      (channel) => !servedChannels.has(channel.channelId),
+    );
+    if (stale.length === 0) return;
+    const mutations: Mutation[] = stale.map((channel) => ({
+      store: "channels",
+      op: "delete",
+      channelId: channel.channelId,
+    }));
+    await applyMutations(this.deps.db, mutations);
+    for (const listener of this.listeners) listener();
   }
 
   stop(): void {
