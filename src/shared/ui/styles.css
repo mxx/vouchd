@@ -133,11 +133,11 @@ a:hover { color: var(--cyan); }
 /* ---- content column ---- */
 
 .content { flex: 1; min-width: 0; padding: 1.75rem 2rem 4rem; max-width: 980px; }
-.content > header { margin-bottom: 1.25rem; }
-.content h1 { font-size: 1.3rem; margin: 0; }
 .status { font-size: 0.8rem; color: var(--muted); }
 
-.title-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+/* Nested in .brand (Sidebar.tsx), next to the glyph -- grows to fill the
+   rest of that row so the language select lands at the sidebar's edge. */
+.title-row { display: flex; flex: 1; align-items: center; justify-content: space-between; gap: 1rem; }
 .lang-select {
   width: auto;
   margin: 0;

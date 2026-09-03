@@ -212,6 +212,14 @@ bullet list in `README.md` and that list only ever grew stale.
   rather than a loading or error state for a fetch that was always
   best-effort.
 
+- The language picker moved from the content area's header into the
+  sidebar, next to the app name -- the content area no longer has a header
+  of its own now that every screen carries its own panel title, so the one
+  heading vouchd always shows (its own name) is where a page-wide setting
+  like language belongs instead. The app name in the sidebar is now the
+  page's `<h1>`, since nothing else holds that role once the content
+  header is gone.
+
 ### Fixed
 
 - A subscription sent the instant a socket opens, on a relay that requires

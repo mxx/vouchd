@@ -26,7 +26,7 @@
  * needed the owner key to publish.
  */
 
-import { LanguageProvider, useT } from "../i18n";
+import { LanguageProvider } from "../i18n";
 import { AgentsPanel } from "../features/agents/AgentsPanel";
 import { OwnerKeyPanel } from "../features/agents/OwnerKeyPanel";
 import { RegisterAgentPanel } from "../features/agents/RegisterAgentPanel";
@@ -37,7 +37,6 @@ import { CommunityPanel } from "../features/communities/CommunityPanel";
 import { CreateChannelPanel } from "../features/membership/CreateChannelPanel";
 import { MembershipPanel } from "../features/membership/MembershipPanel";
 import { PassphrasePrompt } from "../shared/ui/PassphrasePrompt";
-import { LanguageSelect } from "../shared/ui/LanguageSelect";
 import { Sidebar } from "../shared/ui/Sidebar";
 import { StatBar } from "../shared/ui/StatBar";
 import { useVouchdApp, type VouchdAppState } from "./useVouchdApp";
@@ -148,19 +147,12 @@ export function App() {
 function AppShell() {
   const app = useVouchdApp();
   const { connection, passphrasePrompt, rows, nip07, ownerPubkey, activeScreen, setActiveScreen } = app;
-  const t = useT();
 
   return (
     <div className="shell">
       {passphrasePrompt.pending ? <PassphrasePrompt request={passphrasePrompt.pending} /> : null}
       <Sidebar activeScreen={activeScreen} connected={app.connected} nip07={nip07} onNavigate={setActiveScreen} />
       <div className="content">
-        <header>
-          <div className="title-row">
-            <h1>{t.app.title}</h1>
-            <LanguageSelect />
-          </div>
-        </header>
         {app.connected ? (
           <StatBar
             ownerPubkey={ownerPubkey}

@@ -1,9 +1,11 @@
 /**
- * The app shell's left rail: brand, screen switcher (grouped the way the
+ * The app shell's left rail: brand (with the language picker beside it --
+ * src/shared/ui/LanguageSelect.tsx), screen switcher (grouped the way the
  * panels are actually related, not alphabetically), and which identity a
- * NIP-07 extension is offering. The language picker lives in App.tsx's
- * header instead (src/shared/ui/LanguageSelect.tsx) -- see that file for
- * why.
+ * NIP-07 extension is offering. The content area no longer has a header of
+ * its own to hang the picker on now that every screen owns its own panel
+ * title, so the one title this app always shows -- its own name, here --
+ * is where a page-wide setting like language belongs.
  *
  * Nav entries used to be anchor links into one long page, deliberately not
  * a router -- every panel rendered simultaneously, so no tab could
@@ -24,6 +26,7 @@ import type { Screen } from "../../app/useVouchdApp";
 import type { Nip07State } from "../../app/useNip07";
 import { useT } from "../../i18n";
 import { IconAgents, IconChannels, IconCommunity, IconOwnerKey } from "./icons";
+import { LanguageSelect } from "./LanguageSelect";
 
 function IdentityChip({ nip07 }: { nip07: Nip07State }) {
   const t = useT();
@@ -111,7 +114,12 @@ export function Sidebar({
       <div className="sidebar-main">
         <div className="brand">
           <div className="brand-glyph">V</div>
-          <p className="brand-name">{t.app.title}</p>
+          <div className="title-row">
+            {/* The only page-level heading now that the content area has no
+                header of its own -- every screen's own <h2> nests under it. */}
+            <h1 className="brand-name">{t.app.title}</h1>
+            <LanguageSelect />
+          </div>
         </div>
         <p className="brand-tag">{t.app.tagline}</p>
 
