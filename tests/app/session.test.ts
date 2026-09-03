@@ -101,7 +101,10 @@ describe("VouchdSession", () => {
     const { sockets } = await startedSession();
     const req = JSON.parse(sockets[0].sent[0]);
     expect(req[0]).toBe("REQ");
-    expect(req[2]).toEqual({ kinds: [9007, 9000, 9001, 9021, 9022, 7373], limit: STRUCTURAL_BACKFILL_LIMIT });
+    expect(req[2]).toEqual({
+      kinds: [9007, 9002, 9008, 9000, 9001, 9021, 9022, 7373],
+      limit: STRUCTURAL_BACKFILL_LIMIT,
+    });
     expect(req[3]).toEqual({ kinds: [20001] });
     expect(sockets[0].sent).toHaveLength(1);
 

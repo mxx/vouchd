@@ -29,6 +29,8 @@ import {
   KIND_ADD_MEMBER,
   KIND_AUDIT_LOG,
   KIND_CREATE_CHANNEL,
+  KIND_DELETE_CHANNEL,
+  KIND_EDIT_CHANNEL_METADATA,
   KIND_JOIN_CHANNEL,
   KIND_LEAVE_CHANNEL,
   KIND_PRESENCE_UPDATE,
@@ -42,9 +44,20 @@ import type { SignEvent } from "../signer/nip07Signer";
 import { applyMutations, type ReadModelDb } from "../readmodel/db";
 import { type Mutation, projectEvent } from "../readmodel/projector";
 
-/** Everything this app projects except profile — see the module docblock. */
+/**
+ * Everything this app projects except profile — see the module docblock.
+ * Missing a kind here isn't just "that data doesn't backfill": it means an
+ * event of that kind we *publish ourselves* never comes back on this same
+ * subscription either, so projectEvent() never runs for it and the local
+ * view silently stops matching the relay (e.g. a deleted channel that
+ * still shows in the list). KIND_EDIT_CHANNEL_METADATA/KIND_DELETE_CHANNEL
+ * were added here together with their projector cases, not before —
+ * archive/delete looked "wired up" without this and weren't.
+ */
 const STRUCTURAL_KINDS = [
   KIND_CREATE_CHANNEL,
+  KIND_EDIT_CHANNEL_METADATA,
+  KIND_DELETE_CHANNEL,
   KIND_ADD_MEMBER,
   KIND_REMOVE_MEMBER,
   KIND_JOIN_CHANNEL,
