@@ -298,14 +298,22 @@ td.mono { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); }
    deliberately distinct from .identity-chip (rectangular, no radius): that
    one is a status readout, this one exists specifically so a bare pubkey
    fallback reads as "hover for the full value" rather than as plain text. */
-/* Stacked, not side by side: these sit in a table cell that gets narrow on a
-   phone, and a name wrapping around its own key reads as two people. */
+/* A named identity shows its name and keeps the key one gesture away:
+   :hover covers a pointer, and :active covers a phone -- a touch holds
+   :active for exactly as long as the finger stays down, which is what a
+   long press is. No JS, and nothing to keep in sync with a state variable.
+   `visibility` rather than `display` so revealing the key doesn't reflow
+   the row out from under the finger that asked for it. */
 .identity {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 0.25rem;
 }
+
+.identity .pubkey-chip { visibility: hidden; }
+.identity:hover .pubkey-chip,
+.identity:active .pubkey-chip { visibility: visible; }
 
 .pubkey-chip {
   display: inline-flex;
