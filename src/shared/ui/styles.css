@@ -294,6 +294,23 @@ th {
 }
 td.mono { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); }
 
+/* The one rounded/"bubble" shape in this file besides .avatar/.dot --
+   deliberately distinct from .identity-chip (rectangular, no radius): that
+   one is a status readout, this one exists specifically so a bare pubkey
+   fallback reads as "hover for the full value" rather than as plain text. */
+.pubkey-chip {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  cursor: help;
+}
+
 .avatar { width: 20px; height: 20px; border-radius: 50%; margin-right: 0.5rem; vertical-align: middle; object-fit: cover; }
 .avatar-placeholder { display: inline-flex; align-items: center; justify-content: center; background: #e2e2e2; font-size: 12px; line-height: 1; cursor: help; }
 .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 0.4rem; }
@@ -332,6 +349,12 @@ td.mono { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); }
     border-bottom: 1px solid var(--border);
   }
   .sidebar-main { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 1.5rem; }
+  /* Full-width row of its own so .title-row's flex:1 (see the rule above)
+     actually has a screen-wide row to stretch across -- without this,
+     .brand only ever takes its own content width as a plain wrapped flex
+     child, and the language select sits right next to the app name instead
+     of at the screen's edge. */
+  .brand { flex: 1 1 100%; }
   .brand-tag { display: none; }
   .nav-group { margin-top: 0; }
   .sidebar-foot { flex-direction: row; align-items: center; gap: 1rem; border-top: none; }

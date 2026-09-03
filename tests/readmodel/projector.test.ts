@@ -130,6 +130,31 @@ describe("channels", () => {
   it("ignores a malformed create-channel event missing its name", () => {
     expect(projectEvent(event({ kind: 9007, tags: [["h", CHANNEL]] }))).toEqual([]);
   });
+
+  it("projects an archive event (kind:9002) into the separate channelArchive store", () => {
+    const archived = event({ kind: 9002, tags: [["h", CHANNEL], ["archived", "true"]] });
+    expect(projectEvent(archived)).toEqual([
+      { store: "channelArchive", op: "put", value: { channelId: CHANNEL, archived: true, observedAt: AT } },
+    ]);
+  });
+
+  it("unarchive is the same kind with the tag flipped, not a different kind", () => {
+    const unarchived = event({ kind: 9002, tags: [["h", CHANNEL], ["archived", "false"]] });
+    expect(projectEvent(unarchived)[0]).toMatchObject({ value: { archived: false } });
+  });
+
+  it("ignores a kind:9002 event with no archived tag -- not one of ours", () => {
+    expect(projectEvent(event({ kind: 9002, tags: [["h", CHANNEL]] }))).toEqual([]);
+  });
+
+  it("deletes the channel record on kind:9008, same shape as membership's remove/leave", () => {
+    const deleted = event({ kind: 9008, tags: [["h", CHANNEL]] });
+    expect(projectEvent(deleted)).toEqual([{ store: "channels", op: "delete", channelId: CHANNEL }]);
+  });
+
+  it("ignores a kind:9008 event with no h tag", () => {
+    expect(projectEvent(event({ kind: 9008, tags: [] }))).toEqual([]);
+  });
 });
 
 describe("membership", () => {

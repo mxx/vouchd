@@ -134,6 +134,11 @@ export const ko: Messages = {
     colMember: "멤버",
     colRole: "역할",
     colFirstSeen: "최초 확인",
+    removeMember: "제거",
+    archive: "채널 보관",
+    unarchive: "채널 보관 해제",
+    delete: "채널 삭제",
+    deleteConfirm: (name) => `"${name}"을(를) 삭제할까요? 릴레이는 이를 소프트 삭제하며 여기서는 되돌릴 수 없습니다.`,
   },
   agents: {
     emptyTitle: "멤버",
@@ -143,7 +148,6 @@ export const ko: Messages = {
     colChannel: "채널",
     colAuthorizedBy: "인가자",
     colStatus: "상태",
-    unnamed: "이름 없음",
     avatarUnavailable:
       "아바타를 사용할 수 없습니다: 이 릴레이의 미디어 호스트가 이 이미지를 브라우저에 제공하지 않았습니다.",
     noChannels: "(없음)",

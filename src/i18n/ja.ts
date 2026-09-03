@@ -135,6 +135,11 @@ export const ja: Messages = {
     colMember: "メンバー",
     colRole: "役割",
     colFirstSeen: "初回確認",
+    removeMember: "削除",
+    archive: "チャンネルをアーカイブ",
+    unarchive: "アーカイブを解除",
+    delete: "チャンネルを削除",
+    deleteConfirm: (name) => `「${name}」を削除しますか? リレー側でソフトデリートされ、ここから元に戻すことはできません。`,
   },
   agents: {
     emptyTitle: "メンバー",
@@ -144,7 +149,6 @@ export const ja: Messages = {
     colChannel: "チャンネル",
     colAuthorizedBy: "認可者",
     colStatus: "状態",
-    unnamed: "名前未設定",
     avatarUnavailable:
       "アバターを表示できません:このリレーのメディアホストが、あなたのブラウザへのこの画像の提供を拒否しました。",
     noChannels: "(なし)",

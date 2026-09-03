@@ -44,6 +44,22 @@ export interface ChannelRecord {
   channelType?: string;
   about?: string;
   observedAt: number;
+  /**
+   * Joined in from the separate `channelArchive` store at query time
+   * (queries.ts's listChannels), not projected directly onto this record --
+   * a kind:9002 archive/unarchive event carries no `name`, so it can't be
+   * merged into a full ChannelRecord the way projectChannel() builds one
+   * from scratch. Mirrors presence's own separate-store-joined-at-read-time
+   * shape for the same reason. Absent/false both mean "not archived".
+   */
+  archived?: boolean;
+}
+
+/** One channel's latest archived flag (kind:9002) -- see ChannelRecord.archived. */
+export interface ChannelArchiveRecord {
+  channelId: string;
+  archived: boolean;
+  observedAt: number;
 }
 
 export interface MemberRecord {

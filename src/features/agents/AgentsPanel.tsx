@@ -18,6 +18,7 @@ import type { EffectivePresence } from "../../readmodel/presence";
 import type { SignEvent } from "../../signer/nip07Signer";
 import { useT } from "../../i18n";
 import { Panel } from "../../shared/ui/Panel";
+import { PubkeyChip } from "../../shared/ui/PubkeyChip";
 
 export interface AgentRow {
   agent: AgentRecord;
@@ -30,10 +31,6 @@ export interface AgentRow {
   channelNames: string[];
 }
 
-function shortKey(pubkey: string): string {
-  return `${pubkey.slice(0, 8)}…${pubkey.slice(-6)}`;
-}
-
 function NameCell({ agent, sign }: { agent: AgentRecord; sign: SignEvent | undefined }) {
   const t = useT();
   // This relay's media host requires BUD-11 authorization on GET (see
@@ -44,7 +41,7 @@ function NameCell({ agent, sign }: { agent: AgentRecord; sign: SignEvent | undef
   // since that one's worth explaining rather than staying silent about.
   const { src, failed } = useAuthorizedImage(agent.picture, sign);
   return (
-    <td title={agent.pubkey}>
+    <td>
       {src ? (
         <img alt="" className="avatar" src={src} />
       ) : failed ? (
@@ -52,7 +49,7 @@ function NameCell({ agent, sign }: { agent: AgentRecord; sign: SignEvent | undef
           👤
         </span>
       ) : null}
-      {agent.displayName ?? <span className="status">{t.agents.unnamed}</span>}
+      {agent.displayName ?? <PubkeyChip pubkey={agent.pubkey} />}
     </td>
   );
 }
@@ -91,7 +88,7 @@ function AgentRowView({
     <tr>
       <NameCell agent={agent} sign={sign} />
       <td className="mono">{channelNames.length > 0 ? channelNames.join(", ") : t.agents.noChannels}</td>
-      <td className="mono" title={agent.ownerPubkey}>{ownerName ?? shortKey(agent.ownerPubkey)}</td>
+      <td className="mono">{ownerName ?? <PubkeyChip pubkey={agent.ownerPubkey} />}</td>
       <td><PresenceCell lastSeen={lastSeen} presence={presence} /></td>
       <td>
         {onReauthorize ? (

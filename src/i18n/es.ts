@@ -139,6 +139,12 @@ export const es: Messages = {
     colMember: "Miembro",
     colRole: "Rol",
     colFirstSeen: "Primera vez visto",
+    removeMember: "Quitar",
+    archive: "Archivar canal",
+    unarchive: "Desarchivar canal",
+    delete: "Eliminar canal",
+    deleteConfirm: (name) =>
+      `¿Eliminar "${name}"? El relay lo elimina de forma parcial (soft-delete) y esto no se puede deshacer desde aquí.`,
   },
   agents: {
     emptyTitle: "Miembros",
@@ -150,7 +156,6 @@ export const es: Messages = {
     colChannel: "Canal",
     colAuthorizedBy: "Autorizado por",
     colStatus: "Estado",
-    unnamed: "sin nombre",
     avatarUnavailable:
       "Avatar no disponible: el host de medios de este relay no quiso servir esta imagen a tu navegador.",
     noChannels: "(ninguno)",

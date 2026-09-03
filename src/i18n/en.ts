@@ -137,6 +137,11 @@ export const en: Messages = {
     colMember: "Member",
     colRole: "Role",
     colFirstSeen: "First seen",
+    removeMember: "Remove",
+    archive: "Archive channel",
+    unarchive: "Unarchive channel",
+    delete: "Delete channel",
+    deleteConfirm: (name) => `Delete "${name}"? The relay soft-deletes it and this can't be undone from here.`,
   },
   agents: {
     emptyTitle: "Members",
@@ -146,7 +151,6 @@ export const en: Messages = {
     colChannel: "Channel",
     colAuthorizedBy: "Authorized by",
     colStatus: "Status",
-    unnamed: "unnamed",
     avatarUnavailable:
       "Avatar unavailable: this relay's media host wouldn't serve this picture to your browser.",
     noChannels: "(none)",

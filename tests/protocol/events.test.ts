@@ -5,11 +5,13 @@ import {
   buildAddMember,
   buildAuditEntry,
   buildCreateChannel,
+  buildDeleteChannel,
   buildJoin,
   buildLeave,
   buildPresenceUpdate,
   buildProfile,
   buildRemoveMember,
+  buildSetChannelArchived,
   canonicalChannelName,
   EventBuildError,
 } from "@/protocol/events";
@@ -78,6 +80,35 @@ describe("channel creation", () => {
   it("canonicalizes the name the way buzz_core does", () => {
     expect(canonicalChannelName("  #general  ")).toBe("general");
     expect(() => canonicalChannelName("###")).toThrow(EventBuildError);
+  });
+});
+
+describe("channel archive/unarchive and delete", () => {
+  it("archive and unarchive are both kind:9002, differing only in the tag value", () => {
+    expect(buildSetChannelArchived(CHANNEL, true, AT)).toEqual({
+      kind: 9002,
+      tags: [["h", CHANNEL], ["archived", "true"]],
+      content: "",
+      created_at: AT,
+    });
+    expect(buildSetChannelArchived(CHANNEL, false, AT).tags).toEqual([
+      ["h", CHANNEL],
+      ["archived", "false"],
+    ]);
+  });
+
+  it("delete is kind:9008 with only the h tag", () => {
+    expect(buildDeleteChannel(CHANNEL, AT)).toEqual({
+      kind: 9008,
+      tags: [["h", CHANNEL]],
+      content: "",
+      created_at: AT,
+    });
+  });
+
+  it("rejects a malformed channel id before signing, same as create/membership", () => {
+    expect(() => buildSetChannelArchived("not-a-uuid", true, AT)).toThrow(EventBuildError);
+    expect(() => buildDeleteChannel("not-a-uuid", AT)).toThrow(EventBuildError);
   });
 });
 

@@ -95,13 +95,15 @@ function AgentsScreen({ app }: { app: VouchdAppState }) {
 
 /** The existing list ⇄ detail toggle, unchanged -- see ChannelDetailPanel's own docblock. */
 function ChannelsScreen({ app }: { app: VouchdAppState }) {
-  const { channels, focusedChannel, setFocusedChannel, channelMembers, profiles } = app;
+  const { channels, focusedChannel, setFocusedChannel, channelMembers, profiles, canPublish, publish } = app;
   if (focusedChannel) {
     return (
       <ChannelDetailPanel
+        canPublish={canPublish}
         channel={channels.find((channel) => channel.channelId === focusedChannel)}
         members={channelMembers}
         onBack={() => setFocusedChannel(undefined)}
+        onPublish={publish}
         profiles={profiles}
       />
     );

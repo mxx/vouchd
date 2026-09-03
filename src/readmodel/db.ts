@@ -12,6 +12,7 @@ import type { Mutation } from "./projector";
 import type {
   AgentRecord,
   AuditRecord,
+  ChannelArchiveRecord,
   ChannelRecord,
   MemberRecord,
   PresenceRecord,
@@ -19,10 +20,11 @@ import type {
 } from "./records";
 
 const DB_NAME = "vouchd-readmodel";
-// v2 added `auditLog`, v3 added `profiles`. Bumping this without guarding
-// each createObjectStore call below would throw on every browser that
-// already has an older database -- see the `contains` checks in upgrade().
-const DB_VERSION = 3;
+// v2 added `auditLog`, v3 added `profiles`, v4 added `channelArchive`.
+// Bumping this without guarding each createObjectStore call below would
+// throw on every browser that already has an older database -- see the
+// `contains` checks in upgrade().
+const DB_VERSION = 4;
 
 interface ReadModelSchema extends DBSchema {
   agents: { key: string; value: AgentRecord };
@@ -31,6 +33,7 @@ interface ReadModelSchema extends DBSchema {
   presence: { key: string; value: PresenceRecord };
   auditLog: { key: string; value: AuditRecord };
   profiles: { key: string; value: ProfileRecord };
+  channelArchive: { key: string; value: ChannelArchiveRecord };
 }
 
 export type ReadModelDb = IDBPDatabase<ReadModelSchema>;
@@ -53,14 +56,24 @@ export async function openReadModel(): Promise<ReadModelDb> {
       if (!names.contains("presence")) db.createObjectStore("presence", { keyPath: "pubkey" });
       if (!names.contains("auditLog")) db.createObjectStore("auditLog", { keyPath: "id" });
       if (!names.contains("profiles")) db.createObjectStore("profiles", { keyPath: "pubkey" });
+      if (!names.contains("channelArchive")) {
+        db.createObjectStore("channelArchive", { keyPath: "channelId" });
+      }
     },
   });
+}
+
+/** members' delete key is a compound [channelId, pubkey]; every other
+ *  store here is keyed by a single field the mutation already carries as
+ *  `channelId` -- channels is the only other store a mutation deletes from. */
+function deleteKey(mutation: Extract<Mutation, { op: "delete" }>): string | [string, string] {
+  return mutation.store === "members" ? [mutation.channelId, mutation.pubkey] : mutation.channelId;
 }
 
 export async function applyMutations(db: ReadModelDb, mutations: Mutation[]): Promise<void> {
   for (const mutation of mutations) {
     if (mutation.op === "delete") {
-      await db.delete("members", [mutation.channelId, mutation.pubkey]);
+      await db.delete(mutation.store, deleteKey(mutation) as never);
       continue;
     }
     await db.put(mutation.store, mutation.value as never);

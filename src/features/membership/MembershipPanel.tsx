@@ -26,14 +26,11 @@ import { buildAddMember } from "../../protocol/events/membership";
 import type { MemberRole } from "../../protocol/events/types";
 import type { ChannelRecord } from "../../readmodel/records";
 import { useT } from "../../i18n";
+import { shortKey } from "../../shared/format";
 import { Field } from "../../shared/ui/Field";
 import { ErrorText, Panel } from "../../shared/ui/Panel";
 
 const ROLES: MemberRole[] = ["bot", "member", "guest", "admin"];
-
-function shortKey(pubkey: string): string {
-  return `${pubkey.slice(0, 8)}…${pubkey.slice(-6)}`;
-}
 
 function ChannelSelect({
   channels,

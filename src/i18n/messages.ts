@@ -151,6 +151,12 @@ export interface Messages {
     colMember: string;
     colRole: string;
     colFirstSeen: string;
+    removeMember: string;
+    archive: string;
+    unarchive: string;
+    delete: string;
+    /** window.confirm() prompt before publishing the delete-channel event. */
+    deleteConfirm: (name: string) => string;
   };
   agents: {
     emptyTitle: string;
@@ -160,7 +166,6 @@ export interface Messages {
     colChannel: string;
     colAuthorizedBy: string;
     colStatus: string;
-    unnamed: string;
     avatarUnavailable: string;
     noChannels: string;
     notSeen: string;

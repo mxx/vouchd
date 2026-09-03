@@ -28,6 +28,25 @@ export const KIND_LEAVE_CHANNEL = 9022;
 /** Buzz "create channel". Confirmed via buzz-sdk builders.rs (build_create_channel). */
 export const KIND_CREATE_CHANNEL = 9007;
 
+/**
+ * Buzz's generic NIP-29 "edit group metadata" event. This app only ever
+ * writes the `archived` field through it so far (see buildSetChannelArchived
+ * in protocol/events/channel.ts) -- the kind itself is more general in Buzz,
+ * but nothing here needs the rest of it yet. Confirmed via buzz-sdk
+ * builders.rs (build_archive/build_unarchive) and buzz-core's kind.rs
+ * (KIND_NIP29_EDIT_METADATA).
+ */
+export const KIND_EDIT_CHANNEL_METADATA = 9002;
+
+/**
+ * Buzz "delete channel". The relay soft-deletes (state.db.soft_delete_channel)
+ * rather than hard-removing rows, but from this app's side there is no
+ * "undelete" for it the way kind 9002 has archive/unarchive -- treat it as
+ * permanent. Confirmed via buzz-sdk builders.rs (build_delete_channel) and
+ * buzz-relay's handlers/side_effects.rs (handle_delete_group).
+ */
+export const KIND_DELETE_CHANNEL = 9008;
+
 /** Per-pubkey channel_add_policy declaration. Confirmed via buzz-relay handlers/side_effects.rs. */
 export const KIND_CHANNEL_ADD_POLICY = 10100;
 

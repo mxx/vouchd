@@ -28,8 +28,13 @@ export async function listAgentsByOwner(
   return agents.filter((agent) => agent.ownerPubkey === ownerPubkey);
 }
 
+/** Joins in each channel's archived flag from the separate `channelArchive`
+ *  store -- see ChannelRecord.archived for why that's a separate store
+ *  rather than a field projectChannel() writes directly. */
 export async function listChannels(db: ReadModelDb): Promise<ChannelRecord[]> {
-  return db.getAll("channels");
+  const [channels, archiveFlags] = await Promise.all([db.getAll("channels"), db.getAll("channelArchive")]);
+  const archivedById = new Map(archiveFlags.map((flag) => [flag.channelId, flag.archived]));
+  return channels.map((channel) => ({ ...channel, archived: archivedById.get(channel.channelId) ?? false }));
 }
 
 export async function listMembers(db: ReadModelDb, channelId: string): Promise<MemberRecord[]> {

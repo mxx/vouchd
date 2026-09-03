@@ -15,6 +15,8 @@ import {
   KIND_ADD_MEMBER,
   KIND_AUDIT_LOG,
   KIND_CREATE_CHANNEL,
+  KIND_DELETE_CHANNEL,
+  KIND_EDIT_CHANNEL_METADATA,
   KIND_JOIN_CHANNEL,
   KIND_LEAVE_CHANNEL,
   KIND_PRESENCE_UPDATE,
@@ -26,6 +28,7 @@ import type { SignedEvent } from "../protocol/relayMessages";
 import type {
   AgentRecord,
   AuditRecord,
+  ChannelArchiveRecord,
   ChannelRecord,
   MemberRecord,
   PresenceRecord,
@@ -36,11 +39,13 @@ import { validateEvent, verifiedSymbol, verifyEvent } from "nostr-tools/pure";
 export type Mutation =
   | { store: "agents"; op: "put"; value: AgentRecord }
   | { store: "channels"; op: "put"; value: ChannelRecord }
+  | { store: "channels"; op: "delete"; channelId: string }
   | { store: "members"; op: "put"; value: MemberRecord }
   | { store: "members"; op: "delete"; channelId: string; pubkey: string }
   | { store: "presence"; op: "put"; value: PresenceRecord }
   | { store: "auditLog"; op: "put"; value: AuditRecord }
-  | { store: "profiles"; op: "put"; value: ProfileRecord };
+  | { store: "profiles"; op: "put"; value: ProfileRecord }
+  | { store: "channelArchive"; op: "put"; value: ChannelArchiveRecord };
 
 function tagValue(event: SignedEvent, name: string): string | undefined {
   return event.tags.find((tag) => tag[0] === name)?.[1];
@@ -157,6 +162,33 @@ function projectChannel(event: SignedEvent): Mutation[] {
   ];
 }
 
+/** kind:9002 -- this app only ever writes/reads the `archived` field of
+ *  Buzz's generic edit-metadata event (see buildSetChannelArchived); an
+ *  event missing that tag isn't one of ours, so it projects to nothing. */
+function projectChannelArchive(event: SignedEvent): Mutation[] {
+  const channelId = tagValue(event, "h");
+  const archived = tagValue(event, "archived");
+  if (!channelId || archived === undefined) return [];
+  return [
+    {
+      store: "channelArchive",
+      op: "put",
+      value: { channelId, archived: archived === "true", observedAt: event.created_at },
+    },
+  ];
+}
+
+/** kind:9008 -- a pure local delete, same shape as membership's remove/leave.
+ *  Members of a deleted channel are left in place rather than cascade-
+ *  deleted: the channel record disappearing already hides them from every
+ *  panel, and cascading would mean this projector reading the members store
+ *  it's meant to stay pure of (see this file's own docblock). */
+function projectChannelDeletion(event: SignedEvent): Mutation[] {
+  const channelId = tagValue(event, "h");
+  if (!channelId) return [];
+  return [{ store: "channels", op: "delete", channelId }];
+}
+
 function projectMembership(event: SignedEvent): Mutation[] {
   const channelId = tagValue(event, "h");
   if (!channelId) return [];
@@ -229,6 +261,10 @@ export function projectEvent(event: SignedEvent): Mutation[] {
       return projectProfile(event);
     case KIND_CREATE_CHANNEL:
       return projectChannel(event);
+    case KIND_EDIT_CHANNEL_METADATA:
+      return projectChannelArchive(event);
+    case KIND_DELETE_CHANNEL:
+      return projectChannelDeletion(event);
     case KIND_ADD_MEMBER:
     case KIND_REMOVE_MEMBER:
     case KIND_JOIN_CHANNEL:

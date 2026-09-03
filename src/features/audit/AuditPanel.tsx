@@ -10,11 +10,9 @@
 
 import type { AuditRecord, ProfileRecord } from "../../readmodel/records";
 import { useT } from "../../i18n";
+import { shortKey } from "../../shared/format";
 import { Panel } from "../../shared/ui/Panel";
-
-function shortKey(pubkey: string): string {
-  return `${pubkey.slice(0, 8)}…${pubkey.slice(-6)}`;
-}
+import { PubkeyChip } from "../../shared/ui/PubkeyChip";
 
 function AuditRowView({
   entry,
@@ -31,9 +29,7 @@ function AuditRowView({
     <tr>
       <td>{new Date(entry.observedAt * 1000).toLocaleString()}</td>
       <td>{entry.action}</td>
-      <td className="mono" title={entry.ownerPubkey}>
-        {ownerName ?? shortKey(entry.ownerPubkey)}
-      </td>
+      <td className="mono">{ownerName ?? <PubkeyChip pubkey={entry.ownerPubkey} />}</td>
       <td className="mono">{entry.conditions || t.audit.none}</td>
     </tr>
   );
