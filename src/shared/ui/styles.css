@@ -298,6 +298,15 @@ td.mono { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); }
    deliberately distinct from .identity-chip (rectangular, no radius): that
    one is a status readout, this one exists specifically so a bare pubkey
    fallback reads as "hover for the full value" rather than as plain text. */
+/* Stacked, not side by side: these sit in a table cell that gets narrow on a
+   phone, and a name wrapping around its own key reads as two people. */
+.identity {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
 .pubkey-chip {
   display: inline-flex;
   align-items: center;

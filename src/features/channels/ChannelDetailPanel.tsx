@@ -44,7 +44,13 @@ function MemberRowView({
   const t = useT();
   return (
     <tr>
-      <td className="mono">{name ?? <PubkeyChip pubkey={member.pubkey} />}</td>
+      {/* Name and key together, not one-or-the-other: in a roster you act on
+          (this is the panel with the remove button) the name says who you are
+          about to remove and the key is what actually identifies them. */}
+      <td className="identity">
+        {name ? <span>{name}</span> : null}
+        <PubkeyChip pubkey={member.pubkey} />
+      </td>
       <td className="mono">{member.role ?? t.channels.unset}</td>
       <td>{new Date(member.observedAt * 1000).toLocaleString()}</td>
       <td>
