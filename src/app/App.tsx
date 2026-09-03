@@ -53,7 +53,7 @@ import { useVouchdApp, type VouchdAppState } from "./useVouchdApp";
  * sidebar's "Channel list" link still lands somewhere either way.
  */
 function ChannelPanels({ app }: { app: VouchdAppState }) {
-  const { channels, canPublish, publish, focusedChannel, setFocusedChannel, channelMembers, profiles } = app;
+  const { channels, rows, canPublish, publish, focusedChannel, setFocusedChannel, channelMembers, profiles } = app;
   if (focusedChannel) {
     return (
       <ChannelDetailPanel
@@ -68,7 +68,7 @@ function ChannelPanels({ app }: { app: VouchdAppState }) {
     <>
       <ChannelsPanel channels={channels} onSelectChannel={setFocusedChannel} />
       <CreateChannelPanel canPublish={canPublish} onCreate={publish} />
-      <MembershipPanel canPublish={canPublish} channels={channels} onAddMember={publish} />
+      <MembershipPanel canPublish={canPublish} channels={channels} onAddMember={publish} rows={rows} />
     </>
   );
 }

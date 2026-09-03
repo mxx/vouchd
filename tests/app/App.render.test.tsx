@@ -105,4 +105,40 @@ describe("App mounts", () => {
     fireEvent.click(screen.getByRole("button", { name: /Back to channels/ }));
     expect(await screen.findByRole("heading", { name: "Channels (1)" })).toBeDefined();
   });
+
+  // Reuses the "general" channel seeded by the test above -- this file's
+  // fake IndexedDB is shared and never reset, so ordering after it is what
+  // makes that data available here rather than a fresh empty store.
+  it("offers a known agent not yet in the selected channel, filling the pubkey field on pick", async () => {
+    const channelId = "3f2504e0-4f89-41d3-9a0c-0305e82c3301";
+    const agentPubkey = "d4f3c2b1a0d4f3c2b1a0d4f3c2b1a0d4f3c2b1a0d4f3c2b1a0d4f3c2b1a0d4f3";
+    const db = await openReadModel();
+    await applyMutations(db, [
+      {
+        store: "agents",
+        op: "put",
+        value: {
+          pubkey: agentPubkey,
+          ownerPubkey: "0".repeat(64),
+          conditions: "kind=1",
+          displayName: "Release Bot",
+          observedAt: 1_700_000_200,
+        },
+      },
+    ]);
+
+    render(<App />);
+    await screen.findByRole("option", { name: "general" });
+    fireEvent.change(screen.getByLabelText("Channel"), { target: { value: channelId } });
+
+    const knownAgentSelect = screen.getByLabelText("Known agent") as HTMLSelectElement;
+    await screen.findByRole("option", { name: "Release Bot" });
+    fireEvent.change(knownAgentSelect, { target: { value: agentPubkey } });
+
+    const pubkeyField = screen.getByLabelText("Pubkey to add") as HTMLInputElement;
+    expect(pubkeyField.value).toBe(agentPubkey);
+    // The picker is a one-shot shortcut, not a bound value -- it resets to
+    // its own placeholder rather than tracking what it just filled.
+    expect(knownAgentSelect.value).toBe("");
+  });
 });

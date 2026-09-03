@@ -114,6 +114,12 @@ export interface Messages {
     channelLabel: string;
     noChannelsOption: string;
     chooseChannelOption: string;
+    /** Label for the shortcut select that fills the pubkey field from the agent directory. */
+    knownAgentLabel: string;
+    pickChannelFirstOption: string;
+    /** Every known agent is already in the selected channel. */
+    noKnownAgentsOption: string;
+    chooseKnownAgentOption: string;
     pubkeyLabel: string;
     roleLabel: string;
     submit: string;
