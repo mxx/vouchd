@@ -29,6 +29,7 @@ export const ja: Messages = {
     membership: "チャンネルに追加",
     channelList: "チャンネル一覧",
     languageLabel: "言語",
+    connectFirst: "先にリレーに接続してください",
   },
   community: {
     title: "コミュニティ",
@@ -174,5 +175,6 @@ export const ja: Messages = {
     ownerKey: "オーナー鍵",
     locked: "ロック中",
     empty: "未設定",
+    about: "このコミュニティについて",
   },
 };

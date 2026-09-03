@@ -183,6 +183,35 @@ bullet list in `README.md` and that list only ever grew stale.
   codebase checked that at all -- a malformed or unsigned event previously
   projected exactly like a real one as long as its shape matched.
 
+- The sidebar no longer scrolls to an anchor on one long page that renders
+  every panel at once -- clicking a nav item now switches the whole panel
+  area to that item's own screen (`useVouchdApp.ts`'s new `activeScreen`),
+  and the other six links are disabled with a tooltip until the community
+  connection actually succeeds. This is a deliberate reversal of the
+  original "every panel stays visible, a fake tab would be dishonest UI"
+  design (see the old rationale, and why it changed, in `Sidebar.tsx`'s and
+  `App.tsx`'s docblocks): most screens have nothing to show before a
+  connection exists, and gating navigation says so instead of exposing
+  empty panels. Community and Owner key combine into one screen -- also
+  the default, and where a lost connection falls back to -- and every other
+  sidebar item (Register, Members, Channels, Create channel, Add to
+  channel) gets its own screen; none of the underlying panels' own props
+  changed, only where they're mounted. The existing `StatBar` now only
+  renders once connected, and stays visible across every screen instead of
+  always showing at the top of the long page.
+
+- `StatBar` shows a brief community blurb above its usual four tiles when
+  the connected relay's NIP-11 relay-information document (`GET` its
+  `http(s)` origin with `Accept: application/nostr+json`) actually serves a
+  `name` or `description` (new `src/protocol/nip11.ts` and
+  `app/useRelayInfo.ts`). Vouchd has no other notion of "what is this
+  community" -- a community *is* a relay URL -- so this is the honest way
+  to surface real, relay-authored context instead of inventing copy. Fails
+  silently on any error (network, non-OK, bad JSON, CORS), the same as the
+  existing Blossom/CORS picture-loading fallback above: nothing renders
+  rather than a loading or error state for a fetch that was always
+  best-effort.
+
 ### Fixed
 
 - A subscription sent the instant a socket opens, on a relay that requires

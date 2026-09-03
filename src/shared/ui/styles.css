@@ -92,14 +92,21 @@ a:hover { color: var(--cyan); }
 }
 .nav-link {
   display: block;
+  width: 100%;
   padding: 0.45rem 0.6rem;
   margin-bottom: 0.1rem;
+  background: none;
+  border: none;
+  border-left: 2px solid transparent;
   color: var(--muted);
   text-decoration: none;
+  text-align: left;
+  font: inherit;
   font-size: 0.82rem;
-  border-left: 2px solid transparent;
+  cursor: pointer;
 }
 .nav-link:hover { color: var(--text); border-left-color: var(--border); }
+.nav-link[aria-current="page"] { color: var(--text); border-left-color: var(--mint); }
 
 .sidebar-foot { display: flex; flex-direction: column; gap: 0.8rem; }
 .identity-chip {
@@ -178,6 +185,10 @@ a:hover { color: var(--cyan); }
 .stat-value { font-size: 1.4rem; font-weight: 700; margin-top: 0.35rem; }
 .stat-value.mint { color: var(--mint); text-shadow: 0 0 12px rgba(56, 242, 176, 0.35); }
 .stat-value.small { font-size: 0.95rem; font-family: var(--mono); font-weight: 500; }
+
+.community-blurb { margin-bottom: 0.8rem; }
+.blurb-name { font-size: 1rem; font-weight: 700; margin: 0.35rem 0 0; }
+.blurb-description { color: var(--muted); font-size: 0.82rem; line-height: 1.5; margin: 0.2rem 0 0; }
 
 /* ---- panels ---- */
 

@@ -298,7 +298,7 @@ export function RegisterAgentPanel({
   }
 
   return (
-    <Panel id="register" title={t.register.title}>
+    <Panel title={t.register.title}>
       <MintForm
         {...draft}
         onChange={(patch) => setDraft({ ...draft, ...patch })}

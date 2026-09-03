@@ -29,6 +29,7 @@ export const ko: Messages = {
     membership: "채널에 추가",
     channelList: "채널 목록",
     languageLabel: "언어",
+    connectFirst: "먼저 릴레이에 연결하세요",
   },
   community: {
     title: "커뮤니티",
@@ -173,5 +174,6 @@ export const ko: Messages = {
     ownerKey: "소유자 키",
     locked: "잠김",
     empty: "비어 있음",
+    about: "이 커뮤니티 소개",
   },
 };

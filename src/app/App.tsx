@@ -1,12 +1,18 @@
 /**
  * Composition root: assembles the panels and owns nothing else.
  *
- * Every panel still renders on this one page, in the order it always has
- * -- the sidebar (Sidebar.tsx) is jump links into that same page, not a
- * router, because nothing here actually stops existing when you're not
- * "on" its tab. See Sidebar.tsx's own header comment for why a fake tab
- * switch would be dishonest UI for an app that documents its absences
- * (AGENTS.md rule 1, `src/features/bridge/README.md`).
+ * Exactly one screen renders at a time now (`activeScreen`, driven by
+ * Sidebar's nav) -- a deliberate reversal of this file's earlier "every
+ * panel stays on one page" design. That design existed because a fake tab
+ * switch would misrepresent panels with independent live state as
+ * something that stops existing when you're not "on" its tab; the reversal
+ * is safe here because only one thing in this tree ever had that property
+ * (the relay connection), and it now drives the gating itself: every
+ * screen but "identity" requires `connected`, so nothing hidden by
+ * switching screens was ever doing anything a disconnected operator could
+ * observe anyway. See Sidebar.tsx's own header comment for the fuller
+ * version of this reasoning, and useScreenNavigation.ts for where
+ * `activeScreen` and the connected-loss reset live.
  *
  * The owner-key panel is the only place a raw secret is ever typed; every
  * other panel that needs that key to sign something (Community's relay
@@ -36,24 +42,61 @@ import { Sidebar } from "../shared/ui/Sidebar";
 import { StatBar } from "../shared/ui/StatBar";
 import { useVouchdApp, type VouchdAppState } from "./useVouchdApp";
 
+/** Community + Owner key: the only screen reachable before a connection exists. */
+function IdentityScreen({ app }: { app: VouchdAppState }) {
+  const { connection, nip07, keystore, ownerPubkey, refreshOwnerPubkey } = app;
+  return (
+    <>
+      <CommunityPanel
+        error={connection.error}
+        historyMayBeIncomplete={connection.historyMayBeIncomplete}
+        nip07Available={nip07.available}
+        notice={connection.notice}
+        onConnect={connection.connect}
+        onDisconnect={connection.disconnect}
+        status={connection.status}
+      />
+      <OwnerKeyPanel keystore={keystore} onChanged={refreshOwnerPubkey} ownerPubkey={ownerPubkey} />
+    </>
+  );
+}
+
 /**
- * The three channel-related panels, grouped under one name so AppShell's
- * render stays one call per concern instead of growing a line per panel --
- * this cluster (list, create, add-member) is the "Channels" nav group, so
- * it reads as one idea in App.tsx too.
- *
- * `focusedChannel` set swaps the *whole cluster* for ChannelDetailPanel,
- * the one deliberate exception to this file's "every panel stays on the
- * page" rule (see this file's own header comment). It's a narrower
- * exception than it looks: nothing here has independent live state the way
- * CommunityPanel's connection or a pending passphrase prompt does, so
- * swapping list-view for detail-view over the same data is an honest
- * master-detail toggle, not a fake tab hiding something still running.
- * ChannelDetailPanel keeps ChannelsPanel's own `id="channels"` so the
- * sidebar's "Channel list" link still lands somewhere either way.
+ * AuditPanel has no sidebar link of its own -- its own docblock already
+ * frames it as shared context between exactly two flows, re-authorizing
+ * an existing member here and a fresh mint on the Register screen, so it
+ * renders on both rather than picking one arbitrarily.
  */
-function ChannelPanels({ app }: { app: VouchdAppState }) {
-  const { channels, rows, canPublish, publish, focusedChannel, setFocusedChannel, channelMembers, profiles } = app;
+function RegisterScreen({ app }: { app: VouchdAppState }) {
+  const { keystore, passphrasePrompt, canPublish, publish, focusedAgent, setFocusedAgent, auditEntries, profiles } = app;
+  return (
+    <>
+      <RegisterAgentPanel
+        canPublish={canPublish}
+        keystore={keystore}
+        onMinted={setFocusedAgent}
+        onPublish={publish}
+        prefillPubkey={focusedAgent}
+        requestPassphrase={passphrasePrompt.requestPassphrase}
+      />
+      <AuditPanel agentPubkey={focusedAgent} entries={auditEntries} profiles={profiles} />
+    </>
+  );
+}
+
+function AgentsScreen({ app }: { app: VouchdAppState }) {
+  const { rows, profiles, connection, setFocusedAgent, focusedAgent, auditEntries } = app;
+  return (
+    <>
+      <AgentsPanel onReauthorize={setFocusedAgent} profiles={profiles} rows={rows} sign={connection.signer} />
+      <AuditPanel agentPubkey={focusedAgent} entries={auditEntries} profiles={profiles} />
+    </>
+  );
+}
+
+/** The existing list ⇄ detail toggle, unchanged -- see ChannelDetailPanel's own docblock. */
+function ChannelsScreen({ app }: { app: VouchdAppState }) {
+  const { channels, focusedChannel, setFocusedChannel, channelMembers, profiles } = app;
   if (focusedChannel) {
     return (
       <ChannelDetailPanel
@@ -64,13 +107,27 @@ function ChannelPanels({ app }: { app: VouchdAppState }) {
       />
     );
   }
-  return (
-    <>
-      <ChannelsPanel channels={channels} onSelectChannel={setFocusedChannel} />
-      <CreateChannelPanel canPublish={canPublish} onCreate={publish} />
-      <MembershipPanel canPublish={canPublish} channels={channels} onAddMember={publish} rows={rows} />
-    </>
-  );
+  return <ChannelsPanel channels={channels} onSelectChannel={setFocusedChannel} />;
+}
+
+/** Exported for tests: exercises screen switching against a hand-built
+ *  `VouchdAppState`, without needing a real or faked relay connection to
+ *  drive `Sidebar`'s `connected` gating (see App.render.test.tsx). */
+export function AppScreens({ app }: { app: VouchdAppState }) {
+  switch (app.activeScreen) {
+    case "identity":
+      return <IdentityScreen app={app} />;
+    case "register":
+      return <RegisterScreen app={app} />;
+    case "agents":
+      return <AgentsScreen app={app} />;
+    case "channels":
+      return <ChannelsScreen app={app} />;
+    case "create-channel":
+      return <CreateChannelPanel canPublish={app.canPublish} onCreate={app.publish} />;
+    case "membership":
+      return <MembershipPanel canPublish={app.canPublish} channels={app.channels} onAddMember={app.publish} rows={app.rows} />;
+  }
 }
 
 /**
@@ -90,14 +147,13 @@ export function App() {
 
 function AppShell() {
   const app = useVouchdApp();
-  const { keystore, ownerPubkey, refreshOwnerPubkey, connection, passphrasePrompt } = app;
-  const { rows, nip07, canPublish, publish, focusedAgent, setFocusedAgent, auditEntries, profiles } = app;
+  const { connection, passphrasePrompt, rows, nip07, ownerPubkey, activeScreen, setActiveScreen } = app;
   const t = useT();
 
   return (
     <div className="shell">
       {passphrasePrompt.pending ? <PassphrasePrompt request={passphrasePrompt.pending} /> : null}
-      <Sidebar nip07={nip07} />
+      <Sidebar activeScreen={activeScreen} connected={app.connected} nip07={nip07} onNavigate={setActiveScreen} />
       <div className="content">
         <header>
           <div className="title-row">
@@ -105,28 +161,15 @@ function AppShell() {
             <LanguageSelect />
           </div>
         </header>
-        <StatBar ownerPubkey={ownerPubkey} relayStatus={connection.status} rows={rows} />
-        <CommunityPanel
-          error={connection.error}
-          historyMayBeIncomplete={connection.historyMayBeIncomplete}
-          nip07Available={nip07.available}
-          notice={connection.notice}
-          onConnect={connection.connect}
-          onDisconnect={connection.disconnect}
-          status={connection.status}
-        />
-        <OwnerKeyPanel keystore={keystore} onChanged={refreshOwnerPubkey} ownerPubkey={ownerPubkey} />
-        <RegisterAgentPanel
-          canPublish={canPublish}
-          keystore={keystore}
-          onMinted={setFocusedAgent}
-          onPublish={publish}
-          prefillPubkey={focusedAgent}
-          requestPassphrase={passphrasePrompt.requestPassphrase}
-        />
-        <AuditPanel agentPubkey={focusedAgent} entries={auditEntries} profiles={profiles} />
-        <ChannelPanels app={app} />
-        <AgentsPanel onReauthorize={setFocusedAgent} profiles={profiles} rows={rows} sign={connection.signer} />
+        {app.connected ? (
+          <StatBar
+            ownerPubkey={ownerPubkey}
+            relayInfo={app.relayInfo}
+            relayStatus={connection.status}
+            rows={rows}
+          />
+        ) : null}
+        <AppScreens app={app} />
       </div>
     </div>
   );

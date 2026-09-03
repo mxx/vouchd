@@ -86,7 +86,7 @@ export function CommunityPanel({
   }
 
   return (
-    <Panel id="community" title={t.community.title}>
+    <Panel title={t.community.title}>
       <div className="row">
         <div>
           <label htmlFor="relay-url">{t.community.relayUrlLabel}</label>

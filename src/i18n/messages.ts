@@ -46,6 +46,8 @@ export interface Messages {
     membership: string;
     channelList: string;
     languageLabel: string;
+    /** Tooltip on a gated nav button before a connection succeeds. */
+    connectFirst: string;
   };
   community: {
     title: string;
@@ -188,6 +190,8 @@ export interface Messages {
     ownerKey: string;
     locked: string;
     empty: string;
+    /** Label above the relay's own NIP-11 name/description, when it serves one. */
+    about: string;
   };
 }
 

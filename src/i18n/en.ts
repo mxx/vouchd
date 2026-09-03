@@ -31,6 +31,7 @@ export const en: Messages = {
     membership: "Add to a channel",
     channelList: "Channel list",
     languageLabel: "Language",
+    connectFirst: "Connect to a relay first",
   },
   community: {
     title: "Community",
@@ -176,5 +177,6 @@ export const en: Messages = {
     ownerKey: "Owner key",
     locked: "Locked",
     empty: "Empty",
+    about: "About this community",
   },
 };

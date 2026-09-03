@@ -79,7 +79,7 @@ export function ChannelDetailPanel({
   const t = useT();
   if (!channel) return null;
   return (
-    <Panel id="channels" title={t.channelDetail.title(channel.name)}>
+    <Panel title={t.channelDetail.title(channel.name)}>
       <button className="secondary" onClick={onBack}>
         {t.channelDetail.back}
       </button>

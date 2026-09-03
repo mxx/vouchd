@@ -26,7 +26,7 @@ function StoredKeyView({
 }) {
   const t = useT();
   return (
-    <Panel id="owner-key" title={t.ownerKey.title}>
+    <Panel title={t.ownerKey.title}>
       <p className="status">
         {t.ownerKey.storedPrefix} <code>{ownerPubkey}</code>
       </p>
@@ -49,7 +49,7 @@ function ImportKeyForm({
   const [secret, setSecret] = useState("");
   const [passphrase, setPassphrase] = useState("");
   return (
-    <Panel id="owner-key" title={t.ownerKey.title}>
+    <Panel title={t.ownerKey.title}>
       <p className="hint caveat">{t.ownerKey.caveat}</p>
       <Field
         id="owner-secret"

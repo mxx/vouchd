@@ -107,7 +107,7 @@ function AgentRowView({
 function EmptyDirectory() {
   const t = useT();
   return (
-    <Panel id="agents" title={t.agents.emptyTitle}>
+    <Panel title={t.agents.emptyTitle}>
       <p className="hint">{t.agents.empty}</p>
     </Panel>
   );
@@ -132,7 +132,7 @@ export function AgentsPanel({
   if (rows.length === 0) return <EmptyDirectory />;
 
   return (
-    <Panel id="agents" title={t.agents.title(rows.length)}>
+    <Panel title={t.agents.title(rows.length)}>
       <div className="table-scroll">
       <table>
         <thead>

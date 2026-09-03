@@ -29,6 +29,7 @@ export const es: Messages = {
     membership: "Añadir a un canal",
     channelList: "Lista de canales",
     languageLabel: "Idioma",
+    connectFirst: "Conéctate primero a un relay",
   },
   community: {
     title: "Comunidad",
@@ -180,5 +181,6 @@ export const es: Messages = {
     ownerKey: "Clave del propietario",
     locked: "Bloqueada",
     empty: "Vacío",
+    about: "Acerca de esta comunidad",
   },
 };

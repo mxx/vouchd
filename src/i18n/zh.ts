@@ -29,6 +29,7 @@ export const zh: Messages = {
     membership: "加入频道",
     channelList: "频道列表",
     languageLabel: "语言",
+    connectFirst: "请先连接到 relay",
   },
   community: {
     title: "社区",
@@ -170,5 +171,6 @@ export const zh: Messages = {
     ownerKey: "Owner 密钥",
     locked: "已锁定",
     empty: "未设置",
+    about: "关于此社区",
   },
 };

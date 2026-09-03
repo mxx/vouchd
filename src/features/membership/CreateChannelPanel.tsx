@@ -98,7 +98,7 @@ export function CreateChannelPanel({
   }
 
   return (
-    <Panel id="create-channel" title={t.createChannel.title}>
+    <Panel title={t.createChannel.title}>
       <ChannelForm
         canPublish={canPublish}
         name={name}

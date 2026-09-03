@@ -1,17 +1,26 @@
 /**
- * The app shell's left rail: brand, jump links to every panel (grouped the
- * way the panels are actually related, not alphabetically), and which
- * identity a NIP-07 extension is offering. The language picker lives in
- * App.tsx's header instead (src/shared/ui/LanguageSelect.tsx) -- see that
- * file for why.
+ * The app shell's left rail: brand, screen switcher (grouped the way the
+ * panels are actually related, not alphabetically), and which identity a
+ * NIP-07 extension is offering. The language picker lives in App.tsx's
+ * header instead (src/shared/ui/LanguageSelect.tsx) -- see that file for
+ * why.
  *
- * Nav entries are anchor links to each panel's `id` (Panel.tsx), not a
- * router: every panel already renders on this one page (see App.tsx's own
- * header comment on why), so a real tab that hid the others would be
- * fake affordance for a thing this app doesn't do. A jump link is the
- * honest version of "a sidebar that goes somewhere."
+ * Nav entries used to be anchor links into one long page, deliberately not
+ * a router -- every panel rendered simultaneously, so no tab could
+ * meaningfully hide anything, and a fake tab switch would have been
+ * dishonest UI. That's no longer true: App.tsx now renders exactly one
+ * screen at a time (`activeScreen`), so an anchor would silently do
+ * nothing. This is a deliberate reversal of that earlier decision, not a
+ * lapse back into "fake tabs" -- requested explicitly because most screens
+ * have nothing meaningful to show before a relay connection succeeds, and
+ * gating navigation on that says so instead of exposing empty or broken
+ * panels. Only "identity" (Community + Owner key) is reachable before a
+ * connection exists; it's also where a lost connection falls back to (see
+ * useScreenNavigation.ts's reset effect).
  */
 
+import type { ReactNode } from "react";
+import type { Screen } from "../../app/useVouchdApp";
 import type { Nip07State } from "../../app/useNip07";
 import { useT } from "../../i18n";
 import { IconAgents, IconChannels, IconCommunity, IconOwnerKey } from "./icons";
@@ -31,8 +40,72 @@ function IdentityChip({ nip07 }: { nip07: Nip07State }) {
   );
 }
 
-export function Sidebar({ nip07 }: { nip07: Nip07State }) {
+/** "identity" is the only screen reachable without a connection -- every other one is gated on `connected`. */
+function NavItem({
+  screen,
+  icon,
+  label,
+  activeScreen,
+  connected,
+  onNavigate,
+}: {
+  screen: Screen;
+  icon: ReactNode;
+  label: string;
+  activeScreen: Screen;
+  connected: boolean;
+  onNavigate: (screen: Screen) => void;
+}) {
   const t = useT();
+  const disabled = screen !== "identity" && !connected;
+  return (
+    <button
+      aria-current={activeScreen === screen ? "page" : undefined}
+      className="nav-link"
+      disabled={disabled}
+      onClick={() => onNavigate(screen)}
+      title={disabled ? t.nav.connectFirst : undefined}
+      type="button"
+    >
+      {icon} {label}
+    </button>
+  );
+}
+
+/** One `<NavItem>` call, its five identical props factored out of every call site below. */
+function navItem(
+  screen: Screen,
+  icon: ReactNode,
+  label: string,
+  activeScreen: Screen,
+  connected: boolean,
+  onNavigate: (screen: Screen) => void,
+) {
+  return (
+    <NavItem
+      activeScreen={activeScreen}
+      connected={connected}
+      icon={icon}
+      label={label}
+      onNavigate={onNavigate}
+      screen={screen}
+    />
+  );
+}
+
+export function Sidebar({
+  nip07,
+  activeScreen,
+  connected,
+  onNavigate,
+}: {
+  nip07: Nip07State;
+  activeScreen: Screen;
+  connected: boolean;
+  onNavigate: (screen: Screen) => void;
+}) {
+  const t = useT();
+
   return (
     <nav className="sidebar">
       <div className="sidebar-main">
@@ -44,21 +117,21 @@ export function Sidebar({ nip07 }: { nip07: Nip07State }) {
 
         <div className="nav-group">
           <p className="nav-group-label">{t.nav.groupIdentity}</p>
-          <a className="nav-link" href="#community"><IconCommunity /> {t.nav.community}</a>
-          <a className="nav-link" href="#owner-key"><IconOwnerKey /> {t.nav.ownerKey}</a>
+          {navItem("identity", <IconCommunity />, t.nav.community, activeScreen, connected, onNavigate)}
+          {navItem("identity", <IconOwnerKey />, t.nav.ownerKey, activeScreen, connected, onNavigate)}
         </div>
 
         <div className="nav-group">
           <p className="nav-group-label">{t.nav.groupAgents}</p>
-          <a className="nav-link" href="#agents"><IconAgents /> {t.nav.agents}</a>
-          <a className="nav-link" href="#register"><IconAgents /> {t.nav.register}</a>
+          {navItem("agents", <IconAgents />, t.nav.agents, activeScreen, connected, onNavigate)}
+          {navItem("register", <IconAgents />, t.nav.register, activeScreen, connected, onNavigate)}
         </div>
 
         <div className="nav-group">
           <p className="nav-group-label">{t.nav.groupChannels}</p>
-          <a className="nav-link" href="#channels"><IconChannels /> {t.nav.channelList}</a>
-          <a className="nav-link" href="#create-channel"><IconChannels /> {t.nav.createChannel}</a>
-          <a className="nav-link" href="#membership"><IconChannels /> {t.nav.membership}</a>
+          {navItem("channels", <IconChannels />, t.nav.channelList, activeScreen, connected, onNavigate)}
+          {navItem("create-channel", <IconChannels />, t.nav.createChannel, activeScreen, connected, onNavigate)}
+          {navItem("membership", <IconChannels />, t.nav.membership, activeScreen, connected, onNavigate)}
         </div>
       </div>
 

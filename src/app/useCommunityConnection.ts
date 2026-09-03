@@ -18,7 +18,7 @@
  * identity, not two.
  */
 
-import { useState } from "react";
+import { type Dispatch, type SetStateAction, useState } from "react";
 import { useT } from "../i18n";
 import type { ConnectionStatus } from "../protocol/relayClient";
 import type { ReadModelDb } from "../readmodel/db";
@@ -60,6 +60,8 @@ export interface CommunityConnection {
    * relay said.
    */
   historyMayBeIncomplete: boolean;
+  /** The relay this connection is (or was) talking to, or null before a first connect() -- e.g. for a NIP-11 fetch. */
+  relayUrl: string | null;
   connect: (relayUrl: string, identitySource: IdentitySource) => void;
   disconnect: () => void;
 }
@@ -92,6 +94,47 @@ function buildSessionDeps(
   };
 }
 
+/** connect()'s full body, extracted so the hook itself stays under the 40-line limit (AGENTS.md rule 2). */
+function startConnection(
+  db: ReadModelDb,
+  keystore: OwnerKeystore,
+  requestPassphrase: PassphraseProvider,
+  authReason: string,
+  relayUrl: string,
+  identitySource: IdentitySource,
+  setters: {
+    setSession: (session: VouchdSession | null) => void;
+    setStatus: (status: ConnectionStatus) => void;
+    setError: (error: unknown) => void;
+    setNotice: (notice: string | null) => void;
+    setCanPublish: (value: boolean) => void;
+    // Dispatch, not a plain setter: signer is itself a function, so the
+    // call below stores it via the updater-form overload (see the comment
+    // there) -- a plain `(signer) => void` param type loses that overload
+    // and makes TS check the updater arrow against `SignEvent` itself.
+    setSigner: Dispatch<SetStateAction<SignEvent | undefined>>;
+    setHistoryMayBeIncomplete: (value: boolean) => void;
+    setRelayUrl: (relayUrl: string | null) => void;
+  },
+): void {
+  setters.setError(null);
+  setters.setNotice(null);
+  setters.setHistoryMayBeIncomplete(false);
+  setters.setRelayUrl(relayUrl);
+  const signer = buildSigner(identitySource, keystore, requestPassphrase, authReason);
+  setters.setCanPublish(Boolean(signer));
+  // A plain `setSigner(signer)` would be wrong: signer is itself a
+  // function, and React's setState treats a function argument as an
+  // updater `(prev) => next`, not a value to store -- it would call
+  // signer(prevSigner) instead of ever storing it. Wrapping it in an
+  // arrow makes the *arrow* the updater, returning signer as the value.
+  setters.setSigner(() => signer);
+  const deps = buildSessionDeps(db, signer, setters.setStatus, setters.setNotice, setters.setHistoryMayBeIncomplete);
+  const next = new VouchdSession(relayUrl, deps);
+  setters.setSession(next);
+  void next.start().catch(setters.setError);
+}
+
 /** Shared by disconnect() and a fresh connect(): every piece of connection state, back to its rest value. */
 function resetConnectionState(setters: {
   setSession: (session: VouchdSession | null) => void;
@@ -100,6 +143,7 @@ function resetConnectionState(setters: {
   setCanPublish: (value: boolean) => void;
   setSigner: (signer: SignEvent | undefined) => void;
   setHistoryMayBeIncomplete: (value: boolean) => void;
+  setRelayUrl: (relayUrl: string | null) => void;
 }): void {
   setters.setSession(null);
   setters.setStatus("closed");
@@ -107,6 +151,7 @@ function resetConnectionState(setters: {
   setters.setCanPublish(false);
   setters.setSigner(undefined);
   setters.setHistoryMayBeIncomplete(false);
+  setters.setRelayUrl(null);
 }
 
 export function useCommunityConnection(
@@ -121,30 +166,24 @@ export function useCommunityConnection(
   const [canPublish, setCanPublish] = useState(false);
   const [signer, setSigner] = useState<SignEvent | undefined>(undefined);
   const [historyMayBeIncomplete, setHistoryMayBeIncomplete] = useState(false);
+  const [relayUrl, setRelayUrl] = useState<string | null>(null);
   const t = useT();
+  // One bag, reused by both connect() and disconnect() (and passed straight
+  // through to startConnection()/resetConnectionState()) rather than each
+  // re-listing the same eight setters -- see those functions for why each
+  // needs the full set.
+  const setters = {
+    setSession, setStatus, setError, setNotice, setCanPublish, setSigner, setHistoryMayBeIncomplete, setRelayUrl,
+  };
 
   function connect(relayUrl: string, identitySource: IdentitySource) {
     if (!db) return;
-    setError(null);
-    setNotice(null);
-    setHistoryMayBeIncomplete(false);
-    const signer = buildSigner(identitySource, keystore, requestPassphrase, t.community.authReason);
-    setCanPublish(Boolean(signer));
-    // A plain `setSigner(signer)` would be wrong: signer is itself a
-    // function, and React's setState treats a function argument as an
-    // updater `(prev) => next`, not a value to store -- it would call
-    // signer(prevSigner) instead of ever storing it. Wrapping it in an
-    // arrow makes the *arrow* the updater, returning signer as the value.
-    setSigner(() => signer);
-    const deps = buildSessionDeps(db, signer, setStatus, setNotice, setHistoryMayBeIncomplete);
-    const next = new VouchdSession(relayUrl, deps);
-    setSession(next);
-    void next.start().catch(setError);
+    startConnection(db, keystore, requestPassphrase, t.community.authReason, relayUrl, identitySource, setters);
   }
 
   function disconnect() {
     session?.stop();
-    resetConnectionState({ setSession, setStatus, setNotice, setCanPublish, setSigner, setHistoryMayBeIncomplete });
+    resetConnectionState(setters);
   }
 
   return {
@@ -155,6 +194,7 @@ export function useCommunityConnection(
     canPublish,
     signer,
     historyMayBeIncomplete,
+    relayUrl,
     connect,
     disconnect,
   };

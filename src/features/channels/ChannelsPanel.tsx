@@ -46,7 +46,7 @@ function ChannelRowView({
 function EmptyChannels() {
   const t = useT();
   return (
-    <Panel id="channels" title={t.channels.emptyTitle}>
+    <Panel title={t.channels.emptyTitle}>
       <p className="hint">{t.channels.empty}</p>
     </Panel>
   );
@@ -63,7 +63,7 @@ export function ChannelsPanel({
   if (channels.length === 0) return <EmptyChannels />;
 
   return (
-    <Panel id="channels" title={t.channels.title(channels.length)}>
+    <Panel title={t.channels.title(channels.length)}>
       <div className="table-scroll">
       <table>
         <thead>

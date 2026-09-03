@@ -153,7 +153,7 @@ export function MembershipPanel({
   }
 
   return (
-    <Panel id="membership" title={t.membership.title}>
+    <Panel title={t.membership.title}>
       {!canPublish ? <p className="hint caveat">{t.membership.noExtensionCaveat}</p> : null}
       <ChannelSelect channels={channels} onChange={setChannelId} value={channelId} />
       <KnownAgentSelect agents={availableAgents} channelChosen={Boolean(channelId)} onSelect={setPubkey} />

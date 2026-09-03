@@ -31,6 +31,7 @@ export const zhHant: Messages = {
     membership: "加入頻道",
     channelList: "頻道清單",
     languageLabel: "語言",
+    connectFirst: "請先連接到 relay",
   },
   community: {
     title: "社群",
@@ -172,5 +173,6 @@ export const zhHant: Messages = {
     ownerKey: "Owner 金鑰",
     locked: "已鎖定",
     empty: "未設定",
+    about: "關於此社群",
   },
 };

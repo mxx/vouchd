@@ -6,15 +6,16 @@
  * that function too long to read as one piece.
  */
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { createIndexedDbStorage } from "../signer/indexedDbStorage";
 import { OwnerKeystore } from "../signer/ownerKeystore";
 import type { EventTemplate } from "../protocol/events/types";
+import type { RelayInfo } from "../protocol/nip11";
 import { type CommunityConnection, useCommunityConnection } from "./useCommunityConnection";
 import { useAgentRows } from "./useAgentRows";
-import { useAuditEntries } from "./useAuditEntries";
-import { useChannelMembers } from "./useChannelMembers";
 import { useChannels } from "./useChannels";
+import { useFocusedAgent } from "./useFocusedAgent";
+import { useFocusedChannel } from "./useFocusedChannel";
 import { useNip07, type Nip07State } from "./useNip07";
 import {
   type OwnerPassphrasePrompt,
@@ -23,8 +24,12 @@ import {
 import { useOwnerPubkey } from "./useOwnerPubkey";
 import { useProfiles } from "./useProfiles";
 import { useReadModel } from "./useReadModel";
+import { useRelayInfo } from "./useRelayInfo";
+import { useScreenNavigation, type Screen } from "./useScreenNavigation";
 import type { AgentRow } from "../features/agents/AgentsPanel";
 import type { AuditRecord, ChannelRecord, MemberRecord, ProfileRecord } from "../readmodel/records";
+
+export type { Screen } from "./useScreenNavigation";
 
 export interface VouchdAppState {
   keystore: OwnerKeystore;
@@ -47,6 +52,14 @@ export interface VouchdAppState {
   profiles: Map<string, ProfileRecord>;
   canPublish: boolean;
   publish: (template: EventTemplate) => Promise<void>;
+  activeScreen: Screen;
+  setActiveScreen: (screen: Screen) => void;
+  /** `connection.status` is "open" or "authenticated" -- computed once here so
+   *  Sidebar's gating, StatBar's visibility, and useScreenNavigation's reset
+   *  effect all read the same value instead of each re-deriving it. */
+  connected: boolean;
+  /** The relay's own NIP-11 self-description, when it serves one -- see protocol/nip11.ts. */
+  relayInfo: RelayInfo | null;
 }
 
 export function useVouchdApp(): VouchdAppState {
@@ -58,14 +71,12 @@ export function useVouchdApp(): VouchdAppState {
   const rows = useAgentRows(db, connection.session);
   const channels = useChannels(db, connection.session);
   const nip07 = useNip07();
-  // The agent currently in view: set by clicking "Re-authorize" on an
-  // existing row, or automatically after minting a fresh one — "which
-  // agent am I working with right now" is one idea, not two pieces of state.
-  const [focusedAgent, setFocusedAgent] = useState<string | undefined>(undefined);
-  const auditEntries = useAuditEntries(db, connection.session, focusedAgent);
-  const [focusedChannel, setFocusedChannel] = useState<string | undefined>(undefined);
-  const channelMembers = useChannelMembers(db, connection.session, focusedChannel);
+  const focusedAgent = useFocusedAgent(db, connection.session);
+  const focusedChannel = useFocusedChannel(db, connection.session);
   const profiles = useProfiles(db, connection.session);
+  const connected = connection.status === "open" || connection.status === "authenticated";
+  const relayInfo = useRelayInfo(connection.relayUrl, connected);
+  const screenNav = useScreenNavigation(connected);
 
   const publish = (template: EventTemplate) =>
     connection.session
@@ -81,14 +92,13 @@ export function useVouchdApp(): VouchdAppState {
     rows,
     channels,
     nip07,
-    focusedAgent,
-    setFocusedAgent,
-    auditEntries,
-    focusedChannel,
-    setFocusedChannel,
-    channelMembers,
+    ...focusedAgent,
+    ...focusedChannel,
     profiles,
     canPublish: connection.canPublish,
     publish,
+    ...screenNav,
+    connected,
+    relayInfo,
   };
 }
