@@ -5,7 +5,7 @@ import { computeAuthTag } from "@/protocol/nipOA";
 import type { SignedEvent } from "@/protocol/relayMessages";
 import type { WebSocketLike } from "@/protocol/relayClient";
 import type { ReadModelDb } from "@/readmodel/db";
-import { KIND_JOIN_CHANNEL } from "@/protocol/kinds";
+import { KIND_DELETE_CHANNEL, KIND_JOIN_CHANNEL } from "@/protocol/kinds";
 import { SessionError, STRUCTURAL_BACKFILL_LIMIT, VouchdSession } from "@/app/session";
 
 const OWNER_SECRET = "0000000000000000000000000000000000000000000000000000000000000001";
@@ -185,6 +185,37 @@ describe("VouchdSession", () => {
     await expect(
       session.publish({ kind: 9000, tags: [], content: "", created_at: 1 }),
     ).rejects.toThrow(SessionError);
+  });
+
+  it("projects what it publishes, so a deletion the relay will never echo back still leaves the list", async () => {
+    const signed = finalizeEvent(
+      { created_at: 1_700_000_000, kind: KIND_DELETE_CHANNEL, tags: [["h", "general"]], content: "" },
+      hexToBytes(AGENT_SECRET),
+    ) as SignedEvent;
+    const signEvent = vi.fn(async () => signed);
+    const { session, sockets, deletes } = await startedSession({ signEvent });
+
+    const published = session.publish({ kind: KIND_DELETE_CHANNEL, tags: [], content: "", created_at: 1 });
+    await vi.waitFor(() => expect(sockets[0].sent).toHaveLength(2));
+    sockets[0].emit(["OK", signed.id, true, ""]);
+    await published;
+
+    expect(deletes).toEqual([{ store: "channels", key: "general" }]);
+  });
+
+  it("projects nothing for a publish the relay refuses", async () => {
+    const signed = finalizeEvent(
+      { created_at: 1_700_000_000, kind: KIND_DELETE_CHANNEL, tags: [["h", "general"]], content: "" },
+      hexToBytes(AGENT_SECRET),
+    ) as SignedEvent;
+    const { session, sockets, deletes } = await startedSession({ signEvent: async () => signed });
+
+    const published = session.publish({ kind: KIND_DELETE_CHANNEL, tags: [], content: "", created_at: 1 });
+    await vi.waitFor(() => expect(sockets[0].sent).toHaveLength(2));
+    sockets[0].emit(["OK", signed.id, false, "restricted: not the owner"]);
+
+    await expect(published).rejects.toThrow();
+    expect(deletes).toHaveLength(0);
   });
 
   it("signs and publishes through the injected signer", async () => {

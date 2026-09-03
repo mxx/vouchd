@@ -46,13 +46,16 @@ import { type Mutation, projectEvent } from "../readmodel/projector";
 
 /**
  * Everything this app projects except profile — see the module docblock.
- * Missing a kind here isn't just "that data doesn't backfill": it means an
- * event of that kind we *publish ourselves* never comes back on this same
- * subscription either, so projectEvent() never runs for it and the local
- * view silently stops matching the relay (e.g. a deleted channel that
- * still shows in the list). KIND_EDIT_CHANNEL_METADATA/KIND_DELETE_CHANNEL
- * were added here together with their projector cases, not before —
- * archive/delete looked "wired up" without this and weren't.
+ * A kind missing here doesn't just skip the backfill: nothing of that kind
+ * reaches `projectEvent` live either, so the projection silently stops
+ * matching the relay. Both channel-admin kinds belong here, but only
+ * KIND_EDIT_CHANNEL_METADATA is actually *served* through this filter:
+ * buzz-relay scopes every REQ to the channels the asking pubkey can access
+ * and a deleted channel is excluded from that set, so a KIND_DELETE_CHANNEL
+ * event is unreachable here the moment it takes effect. It stays listed
+ * because this filter states what this app projects, and a relay that does
+ * serve it should be projected, not ignored — `publish()` is what this app
+ * actually relies on for deletions, and says why.
  */
 const STRUCTURAL_KINDS = [
   KIND_CREATE_CHANNEL,
@@ -193,12 +196,28 @@ export class VouchdSession {
    * Signs a template with this app's own identity and publishes it. Rejects
    * rather than queueing when offline — see relayClient's note on why a
    * signed event should not be held and flushed later.
+   *
+   * Projects what it published instead of waiting for the relay to echo it
+   * back on the subscription. That echo is not guaranteed to arrive, and for
+   * a channel deletion it never does: buzz-relay scopes every REQ to the
+   * channels the asking pubkey can access, and soft-deleting a channel drops
+   * it from that set (get_accessible_channel_ids: `deleted_at IS NULL`), so
+   * the kind:9008 *and* the kind:9007 it deletes both disappear from live
+   * fan-out and backfill at once. A client that only ever projects what a
+   * subscription hands back therefore keeps the deleted channel in its list
+   * forever — no event that could remove it will ever be served again.
+   *
+   * Not an optimistic write: `relay.publish` resolves only on an `OK ... true`,
+   * so this event is one the relay has confirmed it accepted. Re-projecting
+   * it if the echo does arrive is harmless — every mutation is idempotent.
    */
   async publish(template: EventTemplate): Promise<void> {
     if (!this.deps.signEvent) {
       throw new SessionError("read-only session: no signing extension is connected");
     }
-    await this.relay.publish(await this.deps.signEvent(template));
+    const event = await this.deps.signEvent(template);
+    await this.relay.publish(event);
+    await this.ingest(event);
   }
 
   /** Fires after any event changes the projection, so views can re-read. */
