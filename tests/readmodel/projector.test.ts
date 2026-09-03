@@ -264,6 +264,68 @@ describe("audit log", () => {
   });
 });
 
+describe("a relay's roster snapshot (kind:39002) is trusted only from the relay", () => {
+  /** The relay signs its own snapshots; here AGENT_SECRET stands in for that
+   *  key, so AGENT_PUBKEY is what NIP-11 would advertise as `self`. */
+  function roster(members: string[][], signer = AGENT_SECRET_BYTES): SignedEvent {
+    return event(
+      { kind: 39002, tags: [["d", CHANNEL], ...members] },
+      signer,
+    );
+  }
+
+  it("projects the whole roster, with the role each `p` tag carries", () => {
+    const mutations = projectEvent(
+      roster([
+        ["p", OWNER_PUBKEY, "", "owner"],
+        ["p", AGENT_PUBKEY, "", "bot"],
+      ]),
+      AGENT_PUBKEY,
+    );
+    expect(mutations).toEqual([
+      {
+        store: "channelRoster",
+        op: "put",
+        value: {
+          channelId: CHANNEL,
+          observedAt: AT,
+          members: [
+            { channelId: CHANNEL, pubkey: OWNER_PUBKEY, observedAt: AT, role: "owner" },
+            { channelId: CHANNEL, pubkey: AGENT_PUBKEY, observedAt: AT, role: "bot" },
+          ],
+        },
+      },
+    ]);
+  });
+
+  it("keeps a member whose role the relay left blank", () => {
+    const mutations = projectEvent(roster([["p", OWNER_PUBKEY]]), AGENT_PUBKEY);
+    expect(mutations[0]).toMatchObject({
+      value: { members: [{ pubkey: OWNER_PUBKEY, channelId: CHANNEL }] },
+    });
+  });
+
+  it("ignores a roster signed by anyone other than the relay -- 39002 is addressable, so a member can publish one about a channel they do not run", () => {
+    expect(projectEvent(roster([["p", AGENT_PUBKEY, "", "owner"]]), OWNER_PUBKEY)).toEqual([]);
+  });
+
+  it("ignores every roster when the relay advertises no `self` to check against", () => {
+    expect(projectEvent(roster([["p", AGENT_PUBKEY, "", "owner"]]))).toEqual([]);
+  });
+
+  it("ignores a roster with no channel to attach it to", () => {
+    expect(projectEvent(event({ kind: 39002, tags: [["p", AGENT_PUBKEY]] }), AGENT_PUBKEY)).toEqual([]);
+  });
+
+  it("skips a `p` tag that is not a pubkey rather than storing a malformed member", () => {
+    const mutations = projectEvent(
+      roster([["p", "not-a-pubkey"], ["p", AGENT_PUBKEY, "", "bot"]]),
+      AGENT_PUBKEY,
+    );
+    expect(mutations[0]).toMatchObject({ value: { members: [{ pubkey: AGENT_PUBKEY }] } });
+  });
+});
+
 describe("everything else", () => {
   it("projects nothing for kinds this app does not model", () => {
     expect(projectEvent(event({ kind: 9, content: "a chat message" }))).toEqual([]);

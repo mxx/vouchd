@@ -70,6 +70,27 @@ export interface MemberRecord {
 }
 
 /**
+ * One channel's roster as the *relay* states it (kind:39002), kept whole
+ * rather than exploded into `members` rows.
+ *
+ * A snapshot and a stream of add/remove events are different kinds of claim
+ * and merging them would lose that: `members` holds the memberships this
+ * client happened to observe, which is a subset bounded by the backfill
+ * window and by whichever events the relay still serves. This is the
+ * complete list at a moment in time, signed by the key the relay advertises
+ * as `self`. queries.ts prefers it where present -- see effectiveMembers.
+ *
+ * Stored as one record per channel so a later snapshot replaces the previous
+ * one wholesale, which is what a snapshot means: no per-member reconciling,
+ * and no way for a stale add to survive underneath a newer roster.
+ */
+export interface ChannelRosterRecord {
+  channelId: string;
+  members: MemberRecord[];
+  observedAt: number;
+}
+
+/**
  * Presence is a lease, not a flag: the relay expires it if the publisher
  * stops renewing. We store what was seen and when, and let queries decide
  * whether it is still fresh — a stored "online" that nobody re-published is

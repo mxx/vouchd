@@ -14,17 +14,18 @@ import type {
   AuditRecord,
   ChannelArchiveRecord,
   ChannelRecord,
+  ChannelRosterRecord,
   MemberRecord,
   PresenceRecord,
   ProfileRecord,
 } from "./records";
 
 const DB_NAME = "vouchd-readmodel";
-// v2 added `auditLog`, v3 added `profiles`, v4 added `channelArchive`.
-// Bumping this without guarding each createObjectStore call below would
-// throw on every browser that already has an older database -- see the
-// `contains` checks in upgrade().
-const DB_VERSION = 4;
+// v2 added `auditLog`, v3 added `profiles`, v4 added `channelArchive`,
+// v5 added `channelRoster`. Bumping this without guarding each
+// createObjectStore call below would throw on every browser that already
+// has an older database -- see the `contains` checks in upgrade().
+const DB_VERSION = 5;
 
 interface ReadModelSchema extends DBSchema {
   agents: { key: string; value: AgentRecord };
@@ -34,6 +35,7 @@ interface ReadModelSchema extends DBSchema {
   auditLog: { key: string; value: AuditRecord };
   profiles: { key: string; value: ProfileRecord };
   channelArchive: { key: string; value: ChannelArchiveRecord };
+  channelRoster: { key: string; value: ChannelRosterRecord };
 }
 
 export type ReadModelDb = IDBPDatabase<ReadModelSchema>;
@@ -58,6 +60,9 @@ export async function openReadModel(): Promise<ReadModelDb> {
       if (!names.contains("profiles")) db.createObjectStore("profiles", { keyPath: "pubkey" });
       if (!names.contains("channelArchive")) {
         db.createObjectStore("channelArchive", { keyPath: "channelId" });
+      }
+      if (!names.contains("channelRoster")) {
+        db.createObjectStore("channelRoster", { keyPath: "channelId" });
       }
     },
   });

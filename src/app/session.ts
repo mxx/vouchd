@@ -31,6 +31,7 @@ import {
   KIND_CREATE_CHANNEL,
   KIND_DELETE_CHANNEL,
   KIND_EDIT_CHANNEL_METADATA,
+  KIND_GROUP_MEMBERS,
   KIND_JOIN_CHANNEL,
   KIND_LEAVE_CHANNEL,
   KIND_PRESENCE_UPDATE,
@@ -38,6 +39,7 @@ import {
   KIND_REMOVE_MEMBER,
 } from "../protocol/kinds";
 import type { EventTemplate } from "../protocol/events/types";
+import { fetchRelayInfo } from "../protocol/nip11";
 import { type ConnectionStatus, RelayClient } from "../protocol/relayClient";
 import type { Filter } from "../protocol/relayMessages";
 import type { SignEvent } from "../signer/nip07Signer";
@@ -56,11 +58,17 @@ import { type Mutation, projectEvent } from "../readmodel/projector";
  * because this filter states what this app projects, and a relay that does
  * serve it should be projected, not ignored — `publish()` is what this app
  * actually relies on for deletions, and says why.
+ *
+ * KIND_GROUP_MEMBERS is the relay's own roster snapshot, not something this
+ * app publishes. It is stored channel-scoped, so the same access rules that
+ * decide which channels this pubkey may read decide which rosters arrive —
+ * a private channel's member list reaches its members and nobody else.
  */
 const STRUCTURAL_KINDS = [
   KIND_CREATE_CHANNEL,
   KIND_EDIT_CHANNEL_METADATA,
   KIND_DELETE_CHANNEL,
+  KIND_GROUP_MEMBERS,
   KIND_ADD_MEMBER,
   KIND_REMOVE_MEMBER,
   KIND_JOIN_CHANNEL,
@@ -78,6 +86,15 @@ const STRUCTURAL_KINDS = [
  * inflating this number.
  */
 export const STRUCTURAL_BACKFILL_LIMIT = 500;
+
+/**
+ * How long to wait for the relay's NIP-11 document before giving up on it.
+ * Bounded because it gates the first subscription: a relay that never
+ * answers this GET (no document, a proxy that swallows the request) must
+ * cost this app a few seconds, not the whole session. Giving up means
+ * rosters aren't trusted, which is a smaller loss than never subscribing.
+ */
+const RELAY_INFO_TIMEOUT_MS = 3000;
 
 export class SessionError extends Error {}
 
@@ -116,6 +133,10 @@ function pubkeysIn(mutations: Mutation[]): string[] {
       pubkeys.push(mutation.op === "put" ? mutation.value.pubkey : mutation.pubkey);
     } else if (mutation.store === "auditLog" && mutation.op === "put") {
       pubkeys.push(mutation.value.agentPubkey, mutation.value.ownerPubkey);
+    } else if (mutation.store === "channelRoster") {
+      // A roster names members no add-event in this backfill did, and those
+      // are exactly the pubkeys whose names would otherwise never load.
+      for (const member of mutation.value.members) pubkeys.push(member.pubkey);
     }
   }
   return pubkeys;
@@ -137,6 +158,9 @@ export class VouchdSession {
   private readonly listeners = new Set<() => void>();
   private structuralSubscription: { close(): void } | null = null;
   private profileSubscription: { close(): void } | null = null;
+  /** NIP-11 `self`, the only thing that makes a kind:39002 roster
+   *  trustworthy -- see protocol/nip11.ts and projectChannelRoster. */
+  private relaySelf: string | undefined;
 
   constructor(
     readonly relayUrl: string,
@@ -154,7 +178,16 @@ export class VouchdSession {
   }
 
   async start(): Promise<void> {
+    // Started before connecting and awaited after, so the two round-trips
+    // overlap: `self` is only needed before the first *subscription*, since
+    // a roster arriving with nothing to check it against is discarded, not
+    // queued. Fetched here rather than shared with useRelayInfo's copy (that
+    // one feeds the stat bar from a React effect that runs after connect) --
+    // a second GET of a small, cacheable document is cheaper than making the
+    // session wait on the view layer.
+    const relayInfo = fetchRelayInfo(this.relayUrl, AbortSignal.timeout(RELAY_INFO_TIMEOUT_MS));
     await this.relay.connect();
+    this.relaySelf = (await relayInfo)?.self;
     const knownPubkeys = new Set<string>();
     const servedChannels = new Set<string>();
     let structuralEventCount = 0;
@@ -288,7 +321,7 @@ export class VouchdSession {
     event: Parameters<typeof projectEvent>[0],
     onMutations?: (mutations: Mutation[]) => void,
   ): Promise<void> {
-    const mutations = projectEvent(event);
+    const mutations = projectEvent(event, this.relaySelf);
     if (mutations.length === 0) return;
     onMutations?.(mutations);
     await applyMutations(this.deps.db, mutations);

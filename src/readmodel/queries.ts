@@ -37,8 +37,35 @@ export async function listChannels(db: ReadModelDb): Promise<ChannelRecord[]> {
   return channels.map((channel) => ({ ...channel, archived: archivedById.get(channel.channelId) ?? false }));
 }
 
+/**
+ * Who is in each channel, preferring the relay's own roster snapshot
+ * (kind:39002) over the memberships this client reconstructed from add/
+ * remove events.
+ *
+ * The two are not equally good and shouldn't be merged. A snapshot is the
+ * relay's complete answer at a moment in time, signed by its own key; the
+ * `members` rows are whatever membership events happened to reach this
+ * client, which the structural backfill limit alone can leave short -- and
+ * for a member added before that window there is no event left to see. So a
+ * channel with a snapshot uses it *instead of* those rows rather than in
+ * addition to them: unioning would let a membership the relay no longer
+ * reports survive underneath a roster that omits it.
+ *
+ * Channels with no snapshot keep the old behaviour, which is what a relay
+ * that doesn't publish 39002 -- or one whose `self` key this app couldn't
+ * read -- still gives us.
+ */
+async function effectiveMembers(db: ReadModelDb): Promise<MemberRecord[]> {
+  const [members, rosters] = await Promise.all([db.getAll("members"), db.getAll("channelRoster")]);
+  const snapshotted = new Set(rosters.map((roster) => roster.channelId));
+  return [
+    ...members.filter((member) => !snapshotted.has(member.channelId)),
+    ...rosters.flatMap((roster) => roster.members),
+  ];
+}
+
 export async function listMembers(db: ReadModelDb, channelId: string): Promise<MemberRecord[]> {
-  const members = await db.getAll("members");
+  const members = await effectiveMembers(db);
   return members.filter((member) => member.channelId === channelId);
 }
 
@@ -69,7 +96,7 @@ export async function listProfiles(db: ReadModelDb): Promise<ProfileRecord[]> {
  * needs this for every row on every reload.
  */
 export async function channelNamesByPubkey(db: ReadModelDb): Promise<Map<string, string[]>> {
-  const [members, channels] = await Promise.all([db.getAll("members"), db.getAll("channels")]);
+  const [members, channels] = await Promise.all([effectiveMembers(db), db.getAll("channels")]);
   const nameById = new Map(channels.map((channel) => [channel.channelId, channel.name]));
   const result = new Map<string, string[]>();
   for (const member of members) {

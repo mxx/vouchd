@@ -17,6 +17,7 @@ import {
   KIND_CREATE_CHANNEL,
   KIND_DELETE_CHANNEL,
   KIND_EDIT_CHANNEL_METADATA,
+  KIND_GROUP_MEMBERS,
   KIND_JOIN_CHANNEL,
   KIND_LEAVE_CHANNEL,
   KIND_PRESENCE_UPDATE,
@@ -30,6 +31,7 @@ import type {
   AuditRecord,
   ChannelArchiveRecord,
   ChannelRecord,
+  ChannelRosterRecord,
   MemberRecord,
   PresenceRecord,
   ProfileRecord,
@@ -45,7 +47,8 @@ export type Mutation =
   | { store: "presence"; op: "put"; value: PresenceRecord }
   | { store: "auditLog"; op: "put"; value: AuditRecord }
   | { store: "profiles"; op: "put"; value: ProfileRecord }
-  | { store: "channelArchive"; op: "put"; value: ChannelArchiveRecord };
+  | { store: "channelArchive"; op: "put"; value: ChannelArchiveRecord }
+  | { store: "channelRoster"; op: "put"; value: ChannelRosterRecord };
 
 function tagValue(event: SignedEvent, name: string): string | undefined {
   return event.tags.find((tag) => tag[0] === name)?.[1];
@@ -189,6 +192,40 @@ function projectChannelDeletion(event: SignedEvent): Mutation[] {
   return [{ store: "channels", op: "delete", channelId }];
 }
 
+/**
+ * kind:39002 -- the relay's own signed roster for one channel.
+ *
+ * Trusted only when the relay actually signed it. 39002 is addressable, so
+ * anyone can publish a roster with `d` set to someone else's channel: the
+ * relay stores that under *their* pubkey rather than replacing its own, and
+ * buzz's `is_relay_only_kind` does not reject client-authored 39002, so both
+ * copies come back on the same subscription. `relaySelf` is the pubkey the
+ * relay advertises as its own in NIP-11 (see protocol/nip11.ts); with no
+ * document to read it from, nothing here is trustworthy and nothing is
+ * projected -- membership then stays what add/remove events say it is,
+ * which is where this app started.
+ *
+ * A `p` tag with no role is a member whose role the relay didn't state, not
+ * a member to drop: NIP-29 makes the trailing fields optional, and the
+ * roster's job here is who, with role as detail.
+ */
+function projectChannelRoster(event: SignedEvent, relaySelf?: string): Mutation[] {
+  if (!relaySelf || event.pubkey !== relaySelf) return [];
+  const channelId = tagValue(event, "d");
+  if (!channelId) return [];
+  const members: MemberRecord[] = [];
+  for (const tag of event.tags) {
+    // NIP-29 convention: ["p", pubkey, relay_url, role].
+    if (tag[0] !== "p" || !/^[0-9a-f]{64}$/.test(tag[1] ?? "")) continue;
+    const member: MemberRecord = { channelId, pubkey: tag[1], observedAt: event.created_at };
+    if (tag[3]) member.role = tag[3];
+    members.push(member);
+  }
+  return [
+    { store: "channelRoster", op: "put", value: { channelId, members, observedAt: event.created_at } },
+  ];
+}
+
 function projectMembership(event: SignedEvent): Mutation[] {
   const channelId = tagValue(event, "h");
   if (!channelId) return [];
@@ -254,7 +291,13 @@ function projectAuditEntry(event: SignedEvent): Mutation[] {
   ];
 }
 
-export function projectEvent(event: SignedEvent): Mutation[] {
+/**
+ * `relaySelf` is the relay's own signing pubkey when this app has been able
+ * to read it (NIP-11's `self`). Only kind:39002 needs it -- every other kind
+ * here proves its own provenance through its signature or an embedded NIP-OA
+ * tag, and a caller that cannot supply it still gets everything else.
+ */
+export function projectEvent(event: SignedEvent, relaySelf?: string): Mutation[] {
   if (!isValidNostrEvent(event)) return [];
   switch (event.kind) {
     case KIND_PROFILE:
@@ -265,6 +308,8 @@ export function projectEvent(event: SignedEvent): Mutation[] {
       return projectChannelArchive(event);
     case KIND_DELETE_CHANNEL:
       return projectChannelDeletion(event);
+    case KIND_GROUP_MEMBERS:
+      return projectChannelRoster(event, relaySelf);
     case KIND_ADD_MEMBER:
     case KIND_REMOVE_MEMBER:
     case KIND_JOIN_CHANNEL:

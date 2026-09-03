@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { finalizeEvent } from "nostr-tools/pure";
 import { hexToBytes } from "@noble/hashes/utils";
 import { computeAuthTag } from "@/protocol/nipOA";
@@ -99,7 +99,15 @@ function unmodeledStructuralEvent(id: string): SignedEvent {
   return { id, pubkey: "0".repeat(64), created_at: 0, kind: KIND_JOIN_CHANNEL, tags: [], content: "", sig: "0".repeat(128) };
 }
 
+/** start() reads NIP-11 for the relay's `self` before subscribing; no test
+ *  here is about that fetch, so every one of them gets a relay that serves
+ *  no document (the shape a non-buzz or CORS-refusing relay has anyway). */
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 async function startedSession(overrides = {}, storedChannels: ChannelRecord[] = []) {
+  vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false })));
   const { db, puts, deletes } = fakeDb(storedChannels);
   const sockets: FakeSocket[] = [];
   const session = new VouchdSession("wss://relay.example", { db, ...overrides });
@@ -112,7 +120,9 @@ async function startedSession(overrides = {}, storedChannels: ChannelRecord[] = 
     return socket;
   };
   const started = session.start();
-  await Promise.resolve();
+  // start() opens the socket only after its NIP-11 fetch is in flight, so
+  // wait for the socket to exist rather than for a fixed number of ticks.
+  await vi.waitFor(() => expect(sockets).toHaveLength(1));
   sockets[0].open();
   await started;
   return { session, sockets, puts, deletes };
@@ -124,7 +134,7 @@ describe("VouchdSession", () => {
     const req = JSON.parse(sockets[0].sent[0]);
     expect(req[0]).toBe("REQ");
     expect(req[2]).toEqual({
-      kinds: [9007, 9002, 9008, 9000, 9001, 9021, 9022, 7373],
+      kinds: [9007, 9002, 9008, 39002, 9000, 9001, 9021, 9022, 7373],
       limit: STRUCTURAL_BACKFILL_LIMIT,
     });
     expect(req[3]).toEqual({ kinds: [20001] });
