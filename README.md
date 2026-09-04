@@ -75,13 +75,50 @@ stale the next time a feature is added.
 
 ```bash
 npm install
-npm run check   # typecheck + the 40-line rule + 93 tests
+npm run check   # typecheck + the 40-line rule + unit tests
 npm run dev
 ```
 
 To use it you'll want a NIP-07 extension (Alby, nos2x) for publishing, and an
 owner secret key to import. Minting attestations works without an extension;
 publishing membership events doesn't.
+
+## Release
+
+A release is one directly-openable HTML file:
+
+```bash
+npm ci
+npm run check
+npm run build
+```
+
+Distribute `dist/index.html` as-is. A recipient can double-click that file, or
+the same file can be uploaded to any static host. The repository-root
+`index.html` is Vite's source entry and will not work when opened directly.
+
+The GitLab pipeline runs the checks and builds on merge requests and the
+default branch, but it has no deployment job: a successful pipeline verifies
+the release file; it does not publish it anywhere.
+
+### Local CORS extension workaround
+
+If profile pictures fail because a Blossom media host does not return the
+required CORS headers, a browser extension that relaxes CORS (for example,
+"CORS Unblock") can make them load for that browser only:
+
+1. Install an extension you trust and inspect the site-access permissions it
+   requests.
+2. If opening `dist/index.html` from disk, enable the extension's "Allow access
+   to file URLs" setting.
+3. Enable the workaround, reload vouchd, and disable it again when finished.
+
+Keep the extension off during unrelated or sensitive browsing; CORS extensions
+may have permission to inspect or modify traffic across many sites. If the
+extension supports a site allowlist, limit it to the affected Blossom media
+host. This workaround does not repair the server for other users. A NIP-07
+signing extension also needs its own file-URL access enabled; that is separate
+from relaxing CORS.
 
 ## Reading the code
 
