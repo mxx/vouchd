@@ -187,9 +187,9 @@ for yet.
 
 ## Deployment
 
-Static build (`npm run build` → `dist/`), deployable to any static host.
-No server-side component required for the core product. Optionally, once
-stable, the built assets could be served by a relay the same way Buzz's own
-`admin-web`/`web` are (`ServeDir` + an env var pointing at the `dist/`
-directory) — this is a packaging convenience decided later, not an
-architectural dependency; nothing here assumes it.
+Static build (`npm run build` → `dist/index.html`), usable either by opening
+that file directly or from any static host. Vite emits one classic-script IIFE
+and the build plugin inlines it, including the imported CSS, so no local asset
+requests depend on an HTTP origin. No server-side component is required for
+the core product. A static host remains preferable when browser extensions or
+remote services reject a `file://` page's opaque origin.

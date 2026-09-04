@@ -4,6 +4,13 @@
  */
 import { expect, test } from "@playwright/test";
 
+test("opens the production HTML directly from disk", async ({ page }) => {
+  await page.goto(new URL("../../dist/index.html", import.meta.url).href);
+
+  await expect(page).toHaveTitle("vouchd");
+  await expect(page.getByRole("heading", { name: "Community" })).toBeVisible();
+});
+
 test("renders the read-only community shell", async ({ page }) => {
   await page.goto("/");
 
